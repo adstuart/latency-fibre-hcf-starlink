@@ -1,901 +1,905 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Speed of light, three ways — fibre, hollow-core, Starlink</title>
-<meta name="description" content="A physics-grounded, interactive comparison of long-haul latency between London, New York and Sydney over standard fibre, hollow-core fibre, and Starlink.">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latency Globe · Fibre vs Hollow-Core vs Starlink</title>
+<meta name="description" content="3D interactive latency comparison: standard fibre, hollow-core fibre, Starlink. London ↔ New York and London ↔ Sydney. Scrub a packet along the route and watch milliseconds accumulate.">
+<meta property="og:title" content="Latency Globe">
+<meta property="og:description" content="Scrub a packet across the real world. See why hollow-core beats LEO on transatlantic and why neither beats fibre on Sydney if you built it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/three@0.159/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.33.2/dist/globe.gl.min.js"></script>
 <style>
   :root {
-    /* Anthropic-inspired palette */
-    /* Warm editorial palette — distinct from Anthropic clay */
-    --cream:       #F3F1EA;    /* slightly cooler paper */
-    --cream-soft:  #EBE8DF;
-    --surface:     #FBFAF5;
-    --surface-2:   #F3F1EA;
-    --ink:         #131818;    /* near-black with a hint of teal */
-    --ink-2:       #2E3634;
-    --muted:       #5B625E;
-    --faint:       #868A85;
-    --line:        rgba(19,24,24,0.14);
-    --line-soft:   rgba(19,24,24,0.08);
-    --coral:       #2D5F5D;    /* deep teal — primary accent */
-    --coral-dark:  #1F4543;    /* pressed */
-    --coral-soft:  rgba(45,95,93,0.10);
-    --coral-glow:  rgba(45,95,93,0.42);
-
-    /* Data-viz categorical ramp — warm + cool editorial mix */
-    --smf:      #8A887C;      /* warm grey */
-    --hcf:      #B07A3A;      /* ochre / burnt amber */
-    --stl:      #2D5F5D;      /* deep teal (primary) */
-    --stl-real: #8E3E4E;      /* burgundy */
-    --sky:      #4A6B8C;
-
-    /* Anthropic easing — real curve from production CSS */
-    --ease-out-expo: cubic-bezier(0.165, 0.84, 0.44, 1);
-    --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
-
-    /* Three-stop signature shadow */
-    --shadow-md: 0 2px 2px rgba(0,0,0,.012), 0 4px 4px rgba(0,0,0,.02), 0 16px 24px rgba(0,0,0,.04);
+    --bg: #0B0F12;
+    --bg-2: #0F1418;
+    --panel: #151A1F;
+    --panel-2: #1B2228;
+    --line: #252C33;
+    --line-soft: #1E252B;
+    --ink: #ECEEE9;
+    --ink-dim: #A8AEA6;
+    --muted: #6E756D;
+    --accent: #6EA8FE;        /* clear sky blue - SMF glass fibre */
+    --accent-warm: #F2B84B;   /* bright amber - HCF */
+    --smf: #6EA8FE;           /* blue   - standard silica fibre */
+    --hcf: #F2B84B;           /* amber  - hollow-core (glowing core) */
+    --stl: #E06B8C;           /* rose   - Starlink LEO hops */
+    --stl-real: #B47BE0;      /* violet - Starlink hybrid (methodology only) */
+    --shadow: 0 2px 2px rgba(0,0,0,.3), 0 6px 14px rgba(0,0,0,.35), 0 22px 40px rgba(0,0,0,.45);
+    --radius: 14px;
+    --ease: cubic-bezier(.165,.84,.44,1);
   }
-
   * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--cream);
-    color: var(--ink);
-    font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
-    font-size: 17px; line-height: 1.65;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+  html, body { margin:0; padding:0; height:100%; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  /* ---------- App shell (Claude-Design-ish: left nav, canvas, right dock) ---------- */
+  .app { display: grid; grid-template-columns: 68px 1fr 340px; grid-template-rows: 56px 1fr auto;
+         height: 100vh; grid-template-areas: "topbar topbar topbar" "sidenav stage dock" "sidenav scrub dock"; }
+
+  .topbar { grid-area: topbar; display:flex; align-items:center; gap: 18px;
+    padding: 0 22px; border-bottom: 1px solid var(--line-soft); background: rgba(11,15,18,.75); backdrop-filter: blur(10px); z-index: 10; }
+  .brand { display:flex; align-items:center; gap:10px; font-family:'Fraunces',serif; font-weight:500; font-size:17px; letter-spacing:-0.01em; }
+  .brand .dot { width:10px; height:10px; border-radius:50%; background: linear-gradient(135deg, var(--accent), var(--accent-warm)); box-shadow: 0 0 14px var(--accent); }
+  .brand em { font-style: italic; color: var(--accent); font-weight:500; }
+  .topbar .crumbs { color: var(--muted); font-size: 13px; margin-left: 8px; }
+  .topbar .spacer { flex: 1; }
+  .topbar .pill-btn { padding: 7px 14px; font-size: 12.5px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink-dim); cursor: pointer; transition: all 0.2s var(--ease);
+    font-family: inherit; }
+  .topbar .pill-btn:hover { border-color: var(--accent); color: var(--ink); }
+  .topbar .pill-btn.primary { background: var(--accent); color: #0B0F12; border-color: var(--accent); font-weight: 600; }
+  .topbar .pill-btn.primary:hover { background: #8FDAC9; border-color: #8FDAC9; }
+
+  .sidenav { grid-area: sidenav; background: var(--bg-2); border-right: 1px solid var(--line-soft);
+    display:flex; flex-direction:column; align-items:center; gap: 8px; padding: 14px 0; }
+  .navbtn { width: 44px; height: 44px; border-radius: 10px; display:flex; align-items:center; justify-content:center;
+    color: var(--muted); cursor: pointer; transition: all 0.2s var(--ease); border: 1px solid transparent; }
+  .navbtn:hover { color: var(--ink-dim); background: var(--panel); }
+  .navbtn.active { color: var(--accent); background: var(--panel); border-color: var(--line); }
+  .navbtn svg { width: 20px; height: 20px; }
+
+  .stage { grid-area: stage; position: relative; overflow: hidden; background: radial-gradient(ellipse at 40% 40%, #0F1620 0%, var(--bg) 65%); }
+  .stage .globe-wrap { position: absolute; inset: 0; }
+  .stage .overlay-title { position: absolute; top: 22px; left: 22px; max-width: 520px; pointer-events:none; z-index: 4; }
+  .stage .overlay-title h1 { font-family:'Fraunces', serif; font-weight: 500; font-size: 30px; line-height: 1.1; margin:0 0 8px; letter-spacing: -0.015em; }
+  .stage .overlay-title h1 em { font-style: italic; color: var(--accent); font-weight: 500; }
+  .stage .overlay-title p { font-size: 13.5px; color: var(--ink-dim); line-height: 1.55; margin: 0 0 16px; max-width: 440px; }
+
+  .scenarios { pointer-events: auto; background: rgba(14,18,22,.78); backdrop-filter: blur(10px);
+    border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px; max-width: 360px; }
+  .scenarios-head { font-family:'Fraunces',serif; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted); padding: 4px 6px 8px; }
+  .scen { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid transparent;
+    border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: all 0.18s var(--ease); font-family: inherit;
+    color: var(--ink-dim); }
+  .scen + .scen { margin-top: 2px; }
+  .scen:hover { background: rgba(255,255,255,0.03); color: var(--ink); }
+  .scen.active { background: rgba(110,168,254,0.08); border-color: rgba(110,168,254,0.28); color: var(--ink); }
+  .scen .st { display: block; font-size: 13px; font-weight: 500; letter-spacing: -0.01em; }
+  .scen .sd { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+  .scen.active .sd { color: var(--ink-dim); }
+  .reality-toggle { display: inline-block; margin-top: 6px; font-size: 10.5px; color: var(--muted);
+    letter-spacing: .04em; text-transform: uppercase; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px; transition: all 0.15s var(--ease); pointer-events: auto; }
+  .reality-toggle:hover { color: var(--ink); background: rgba(255,255,255,0.04); }
+  .reality-pop { display: none; margin-top: 8px; padding: 8px 10px; font-size: 11.5px; line-height: 1.5;
+    color: var(--ink-dim); background: rgba(0,0,0,0.25); border-left: 2px solid var(--line-soft);
+    border-radius: 0 6px 6px 0; max-width: 320px; }
+  .reality-pop strong { color: var(--ink); font-weight: 500; }
+  .reality-pop em { color: var(--accent); font-style: normal; }
+  .reality-pop.open { display: block; }
+
+  .stage .route-tabs { position: absolute; top: 22px; right: 22px; display:flex; gap: 6px; background: rgba(21,26,31,.85);
+    padding: 4px; border-radius: 10px; border: 1px solid var(--line-soft); backdrop-filter: blur(8px); z-index: 5; }
+  .route-tab { padding: 8px 14px; font-size: 12.5px; border: none; background: transparent; color: var(--ink-dim);
+    cursor: pointer; border-radius: 7px; font-family: inherit; transition: all 0.2s var(--ease); font-weight: 500; }
+  .route-tab:hover { color: var(--ink); }
+  .route-tab.active { background: var(--accent); color: #0B0F12; font-weight: 600; }
+
+  .stage .legend { position: absolute; bottom: 22px; left: 22px; display:flex; gap: 14px; flex-wrap:wrap;
+    background: rgba(21,26,31,.85); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line-soft);
+    backdrop-filter: blur(8px); z-index: 3; max-width: 560px; }
+  .legend-item { display:flex; align-items:center; gap: 7px; font-size: 11.5px; color: var(--ink-dim); white-space:nowrap; }
+  .legend-item .swatch { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+  .legend-item.active { color: var(--ink); }
+
+  .stage .stats-card { position: absolute; bottom: 22px; right: 22px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px; min-width: 240px; box-shadow: var(--shadow); z-index: 4; }
+  .stats-card .k { font-size: 10.5px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 3px; }
+  .stats-card .v { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 500; letter-spacing: -0.02em; }
+  .stats-card .v .u { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink-dim); margin-left: 4px; font-weight: 400; }
+  .stats-card .row { display:flex; justify-content: space-between; gap: 14px; }
+  .stats-card .row + .row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+  .stats-card .scen-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft);
+    font-size: 11.5px; color: var(--ink-dim); line-height: 1.5; max-width: 300px; }
+  .stats-card .scen-note:empty { display: none; }
+
+  /* Tooltip (hover a hop) */
+  .hop-tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 11px; font-size: 12px; box-shadow: var(--shadow); z-index: 20;
+    transform: translate(-50%, calc(-100% - 8px)); opacity: 0; transition: opacity 0.15s; min-width: 140px; }
+  .hop-tip.show { opacity: 1; }
+  .hop-tip .t { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 2px; }
+  .hop-tip .v { font-family: 'Fraunces', serif; font-size: 15px; }
+
+  /* ---------- Scrub timeline (Claude-Design 'scrubable climber' idea) ---------- */
+  .scrub { grid-area: scrub; background: var(--bg-2); border-top: 1px solid var(--line-soft); padding: 16px 22px 22px; }
+  .scrub-head { display:flex; align-items:center; gap: 14px; margin-bottom: 10px; }
+  .scrub-head h3 { font-family:'Fraunces',serif; font-weight: 500; font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+  .scrub-head .tip { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .scrub-bar { position: relative; height: 58px; background: var(--panel); border-radius: 10px; border: 1px solid var(--line);
+    overflow: hidden; }
+  .lanes { position: absolute; inset: 0; }
+  .lane { position: absolute; left: 0; right: 0; height: 10px; display:flex; align-items:center; }
+  .lane .track { position: absolute; left: 12px; right: 72px; height: 2px; background: var(--line); border-radius: 2px; }
+  .lane .fill { position: absolute; left: 12px; height: 2px; background: currentColor; border-radius: 2px; transition: width 0.05s linear; }
+  .lane .dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: currentColor;
+    box-shadow: 0 0 10px currentColor; transition: left 0.05s linear; }
+  .lane .tag { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: currentColor; font-size: 10.5px; font-family: 'JetBrains Mono', monospace;
+    opacity: 0.85; background: rgba(11,15,18,0.92); padding: 1px 6px; border-radius: 3px; letter-spacing: 0.02em; }
+  .scrub-control { display:flex; align-items:center; gap: 14px; margin-top: 10px; }
+  .scrub-control input[type=range] { flex: 1; -webkit-appearance:none; background: transparent; height: 20px; }
+  .scrub-control input[type=range]::-webkit-slider-runnable-track { height: 3px; background: var(--line); border-radius: 2px; }
+  .scrub-control input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width: 16px; height: 16px; border-radius:50%;
+    background: var(--accent); margin-top: -6.5px; box-shadow: 0 0 12px var(--accent); cursor: grab; }
+  .scrub-control input[type=range]::-moz-range-track { height: 3px; background: var(--line); border-radius: 2px; }
+  .scrub-control input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius:50%; background: var(--accent);
+    box-shadow: 0 0 12px var(--accent); cursor: grab; border: none; }
+  .scrub-control .play { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); cursor: pointer; display:flex; align-items:center; justify-content:center; font-family:inherit;
+    transition: all 0.2s var(--ease); }
+  .scrub-control .play:hover { border-color: var(--accent); color: var(--accent); }
+  .scrub-control .pct { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink-dim); min-width: 64px; text-align: right; }
+
+  /* ---------- Right dock: Tweaks panel (Claude-Design idea) ---------- */
+  .dock { grid-area: dock; background: var(--bg-2); border-left: 1px solid var(--line-soft); overflow-y: auto; }
+  .dock-section { padding: 18px 20px; border-bottom: 1px solid var(--line-soft); }
+  .dock-section h4 { font-family:'Fraunces', serif; font-weight: 500; font-size: 14px; margin: 0 0 14px; letter-spacing: -0.01em;
+    color: var(--ink); }
+  .dock-section .muted { color: var(--muted); font-size: 11.5px; margin-top: -8px; margin-bottom: 12px; }
+  .control { display:flex; flex-direction:column; gap: 6px; margin-bottom: 14px; }
+  .control .head { display:flex; justify-content: space-between; align-items:baseline; }
+  .control .name { font-size: 12.5px; color: var(--ink-dim); }
+  .control .val { font-family:'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
+  .control input[type=range] { -webkit-appearance:none; background:transparent; height: 16px; width: 100%; }
+  .control input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
+  .control input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent); margin-top: -5px; }
+  .control input[type=range]::-moz-range-track { height: 2px; background: var(--line); }
+  .control input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: none; }
+  .control .hint { font-size: 11px; color: var(--muted); line-height: 1.45; }
+
+  .toggles { display:flex; flex-direction:column; gap: 8px; }
+  .toggle { display:flex; align-items:center; gap: 10px; font-size: 12.5px; color: var(--ink-dim); cursor: pointer; }
+  .toggle input { accent-color: var(--accent); }
+
+  .preset-row { display:flex; gap: 6px; flex-wrap: wrap; }
+  .preset { flex: 1; min-width: 70px; padding: 8px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink-dim); font-size: 11.5px; cursor: pointer; font-family: inherit; transition: all 0.15s var(--ease); }
+  .preset:hover { border-color: var(--accent); color: var(--ink); }
+  .preset.active { background: rgba(110,168,254,.12); border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- Panels / modals ---------- */
+  .sheet { position: fixed; inset: 0; background: rgba(11,15,18,.85); backdrop-filter: blur(6px); z-index: 50;
+    display: none; align-items: center; justify-content: center; padding: 40px; }
+  .sheet.show { display: flex; }
+  .sheet-inner { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; max-width: 760px; width: 100%;
+    max-height: 86vh; overflow-y: auto; box-shadow: var(--shadow); }
+  .sheet-head { padding: 22px 26px; border-bottom: 1px solid var(--line-soft); display:flex; align-items:center; gap: 14px; }
+  .sheet-head h2 { font-family:'Fraunces', serif; font-weight: 500; font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+  .sheet-head h2 em { font-style: italic; color: var(--accent); font-weight: 500; }
+  .sheet-head .spacer { flex: 1; }
+  .sheet-head .close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent;
+    color: var(--ink-dim); cursor: pointer; font-family: inherit; }
+  .sheet-body { padding: 22px 26px; line-height: 1.6; color: var(--ink-dim); font-size: 14px; }
+  .sheet-body strong { color: var(--ink); }
+  .sheet-body h3 { font-family:'Fraunces', serif; font-weight: 500; color: var(--ink); margin: 18px 0 8px; font-size: 16px; }
+  .sheet-body table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  .sheet-body th, .sheet-body td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  .sheet-body th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+  .sheet-body .num { text-align: right; font-family: 'JetBrains Mono', monospace; }
+  .sheet-body code { font-family: 'JetBrains Mono', monospace; background: var(--panel-2); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+  .sheet-body pre { background: var(--panel-2); border: 1px solid var(--line-soft); padding: 14px; border-radius: 10px;
+    overflow-x: auto; font-size: 12.5px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Design-system tokens view */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 8px 0 16px; }
+  .sw { padding: 12px; border-radius: 10px; border: 1px solid var(--line-soft); }
+  .sw .chip { width: 100%; height: 38px; border-radius: 6px; margin-bottom: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); }
+  .sw .lbl { font-size: 11px; color: var(--ink-dim); }
+  .sw .mono { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted); }
+
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: 56px 1fr; grid-template-rows: 56px 1fr auto auto;
+      grid-template-areas: "topbar topbar" "sidenav stage" "sidenav scrub" "dock dock"; }
+    .dock { border-left: none; border-top: 1px solid var(--line-soft); max-height: 320px; }
   }
-  ::selection { background: var(--coral-glow); color: var(--ink); }
-  h1, h2, p { text-wrap: pretty; }
-  h1 { text-wrap: balance; }
-  .num, td.num, .kpi .num { font-variant-numeric: tabular-nums; }
-
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 28px 96px; }
-  @media (max-width: 720px) { .wrap { padding: 24px 20px 72px; } }
-
-  /* Typography */
-  .serif { font-family: 'Fraunces', 'Iowan Old Style', Georgia, serif; font-feature-settings: "ss01"; }
-  h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 400;
-       font-size: clamp(44px, 7vw, 86px); line-height: 1.02;
-       letter-spacing: -0.025em; margin: 0 0 24px; color: var(--ink); }
-  h1 em { font-style: italic; color: var(--coral); font-weight: 400; }
-  h2 { font-family: 'Fraunces', Georgia, serif; font-weight: 400;
-       font-size: clamp(30px, 4vw, 44px); line-height: 1.15;
-       letter-spacing: -0.02em; margin: 72px 0 16px; color: var(--ink); }
-  h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 500;
-       font-size: 22px; margin: 28px 0 8px; letter-spacing: -0.01em; }
-  p  { max-width: 66ch; margin: 0 0 16px; color: var(--ink-2); }
-  p.lede { font-size: 22px; line-height: 1.5; color: var(--ink-2); margin: 0 0 32px;
-           max-width: 56ch; font-weight: 400; }
-  a { color: var(--coral); text-decoration: none;
-      border-bottom: 1px solid rgba(204,120,92,0.35);
-      transition: border-color .18s ease, color .18s ease; }
-  a:hover { color: var(--coral-dark); border-bottom-color: var(--coral); }
-  code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-
-  /* Eyebrow / meta */
-  .eyebrow { text-transform: uppercase; letter-spacing: 0.16em;
-             font-size: 12px; font-weight: 600; color: var(--muted); }
-  .byline  { color: var(--muted); font-size: 14px; }
-  .byline .sep { display: inline-block; width: 20px; height: 1px;
-                 background: var(--line); vertical-align: middle; margin: 0 8px; }
-
-  /* Hero */
-  header.hero { padding: 48px 0 24px; border-bottom: 1px solid var(--line-soft);
-                margin-bottom: 56px; }
-
-  /* KPI strip */
-  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
-          border: 1px solid var(--line-soft); border-radius: 14px;
-          background: var(--surface); overflow: hidden; margin: 40px 0 20px; }
-  .kpi { padding: 24px 26px; border-right: 1px solid var(--line-soft); position: relative; }
-  .kpi:last-child { border-right: none; }
-  .kpi .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase;
-              letter-spacing: 0.1em; font-weight: 600; margin-bottom: 6px; }
-  .kpi .num { font-family: 'Fraunces', Georgia, serif; font-weight: 400;
-              font-size: 44px; line-height: 1; color: var(--ink);
-              letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .kpi .num .u { font-size: 20px; color: var(--muted); margin-left: 4px; font-family: 'Inter', sans-serif; }
-  .kpi .sub { font-size: 14px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
-  .kpi.accent::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
-    background: var(--coral);
-  }
-  @media (max-width: 720px) {
-    .kpis { grid-template-columns: 1fr; }
-    .kpi { border-right: none; border-bottom: 1px solid var(--line-soft); }
-    .kpi:last-child { border-bottom: none; }
-  }
-
-  /* Section blocks */
-  section { margin: 0; }
-  .block { margin: 0 0 56px; }
-  .card  { background: var(--surface); border: 1px solid var(--line-soft);
-           border-radius: 14px; padding: 28px; }
-  .card.tight { padding: 20px 24px; }
-
-  /* Packet race widget */
-  .race { margin: 24px 0 12px; }
-  .race-lane {
-    position: relative; height: 52px;
-    background: linear-gradient(to right, var(--surface-2) 0%, var(--surface-2) 100%);
-    border: 1px solid var(--line-soft); border-radius: 26px;
-    margin-bottom: 12px; overflow: hidden;
-  }
-  .race-lane .label {
-    position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
-    font-size: 13px; font-weight: 500; color: var(--ink-2); z-index: 2;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .race-lane .chip { width: 10px; height: 10px; border-radius: 2px; }
-  .race-lane .result {
-    position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
-    font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--muted);
-    z-index: 2; opacity: 0; transition: opacity .3s;
-  }
-  .race-lane .result.show { opacity: 1; }
-  .race-lane .packet {
-    position: absolute; top: 50%; left: 4px; width: 12px; height: 12px;
-    border-radius: 50%; transform: translate(0, -50%);
-    box-shadow: 0 0 0 4px rgba(255,255,255,0.6), 0 0 12px currentColor;
-    z-index: 3;
-  }
-  .race-lane .trail {
-    position: absolute; top: 50%; left: 0; height: 2px;
-    transform: translateY(-50%);
-    opacity: 0.35; z-index: 1;
-    border-radius: 2px;
-  }
-
-  /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 8px;
-         padding: 10px 18px; background: var(--ink); color: var(--cream);
-         border: 1px solid var(--ink); border-radius: 999px;
-         font-family: inherit; font-size: 14px; font-weight: 500;
-         cursor: pointer; transition: all .2s var(--ease-out-expo); }
-  .btn:hover { background: var(--coral); border-color: var(--coral); transform: translateY(-1px); }
-  .btn.ghost { background: transparent; color: var(--ink); }
-  .btn.ghost:hover { background: var(--ink); color: var(--cream); }
-
-  /* Route switcher */
-  .switcher { display: inline-flex; background: var(--surface); border: 1px solid var(--line-soft);
-              border-radius: 999px; padding: 4px; gap: 2px; margin-bottom: 20px; }
-  .switcher button { padding: 8px 18px; background: transparent; border: none;
-                     border-radius: 999px; cursor: pointer; font-family: inherit;
-                     font-size: 14px; font-weight: 500; color: var(--muted);
-                     transition: all .2s var(--ease-out-expo); }
-  .switcher button.active { background: var(--ink); color: var(--cream); }
-
-  /* Sliders */
-  .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-              padding: 24px; background: var(--surface-2); border-radius: 12px;
-              border: 1px solid var(--line-soft); margin: 20px 0; }
-  @media (max-width: 720px) { .controls { grid-template-columns: 1fr; } }
-  .control { display: flex; flex-direction: column; gap: 8px; }
-  .control .head { display: flex; justify-content: space-between; align-items: baseline; }
-  .control .name { font-size: 13px; font-weight: 600; color: var(--ink-2); }
-  .control .val  { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--coral); font-weight: 500; }
-  .control input[type=range] {
-    width: 100%; -webkit-appearance: none; appearance: none; background: transparent;
-  }
-  .control input[type=range]::-webkit-slider-runnable-track {
-    height: 4px; background: var(--line); border-radius: 2px;
-  }
-  .control input[type=range]::-moz-range-track {
-    height: 4px; background: var(--line); border-radius: 2px;
-  }
-  .control input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
-    background: var(--coral); border-radius: 50%; margin-top: -7px;
-    border: 2px solid var(--cream); box-shadow: 0 0 0 1px var(--coral-dark);
-    cursor: pointer; transition: transform .15s;
-  }
-  .control input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-  .control input[type=range]::-moz-range-thumb {
-    width: 14px; height: 14px; background: var(--coral); border-radius: 50%;
-    border: 2px solid var(--cream); cursor: pointer;
-  }
-  .control .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-  /* World map SVG */
-  .map-card { padding: 0; overflow: hidden; background: var(--surface);
-              border: 1px solid var(--line-soft); border-radius: 14px; }
-  svg.map { display: block; width: 100%; height: auto; background: var(--surface); }
-  .map-legend { display: flex; flex-wrap: wrap; gap: 18px; padding: 14px 20px;
-                border-top: 1px solid var(--line-soft); background: var(--surface-2);
-                font-size: 13px; color: var(--ink-2); }
-  .map-legend .item { display: flex; align-items: center; gap: 8px; }
-  .map-legend .dot { width: 12px; height: 2px; border-radius: 2px; }
-
-  /* Table */
-  table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
-  th, td { padding: 12px 14px; border-bottom: 1px solid var(--line-soft); text-align: left; }
-  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
-       color: var(--muted); font-weight: 600; background: transparent; }
-  td.num { text-align: right; font-family: 'JetBrains Mono', monospace;
-           font-variant-numeric: tabular-nums; color: var(--ink-2); }
-  tr:hover td { background: var(--surface-2); }
-  .chip-inline { display: inline-block; width: 8px; height: 8px; border-radius: 2px;
-                 margin-right: 8px; vertical-align: middle; }
-
-  /* Breakdown bars */
-  .break { display: grid; gap: 16px; margin: 20px 0; }
-  .break-row { display: grid; grid-template-columns: 240px 1fr 100px; gap: 16px; align-items: center; }
-  @media (max-width: 720px) { .break-row { grid-template-columns: 1fr; gap: 6px; } }
-  .break-row .lbl { font-size: 13px; color: var(--ink-2); font-weight: 500; }
-  .break-row .lbl .t { color: var(--muted); font-size: 12px; display: block; font-weight: 400; }
-  .break-bar { height: 28px; background: var(--surface-2); border-radius: 14px;
-               position: relative; overflow: hidden; border: 1px solid var(--line-soft); }
-  .break-bar .fill-prop { position: absolute; left: 0; top: 0; bottom: 0;
-                          border-radius: 14px 0 0 14px;
-                          transition: width .6s var(--ease-out-expo); }
-  .break-bar .fill-over { position: absolute; top: 0; bottom: 0;
-                          background: repeating-linear-gradient(45deg,
-                            rgba(20,20,19,0.12) 0 4px, rgba(20,20,19,0.05) 4px 8px);
-                          transition: width .6s var(--ease-out-expo), left .6s var(--ease-out-expo); }
-  .break-row .total { font-family: 'JetBrains Mono', monospace; font-size: 14px;
-                      color: var(--ink); text-align: right; font-weight: 500; }
-
-  /* Callout */
-  .callout { background: var(--coral-soft); border-left: 3px solid var(--coral);
-             padding: 18px 22px; border-radius: 0 10px 10px 0; margin: 28px 0;
-             font-size: 15.5px; color: var(--ink-2); }
-  .callout strong { color: var(--ink); }
-  .callout.muted { background: var(--surface-2); border-left-color: var(--muted); }
-
-  /* Code block */
-  pre { background: #14120F; color: #E6DFD1; padding: 22px 24px;
-        border-radius: 12px; overflow-x: auto; font-size: 13.5px; line-height: 1.6;
-        font-family: 'JetBrains Mono', monospace; }
-  pre .c { color: #8B8678; font-style: italic; }
-  pre .k { color: #E0A482; }
-
-  /* Reveal animation */
-  .reveal { opacity: 0; transform: translateY(16px);
-            transition: opacity .8s var(--ease-out-expo), transform .8s var(--ease-out-expo); }
-  .reveal.in { opacity: 1; transform: translateY(0); }
-
-  sup.cite { color: var(--coral); font-weight: 600; font-size: 11px; padding: 0 2px; cursor: pointer; }
-  .refs { font-size: 13.5px; color: var(--muted); background: var(--surface-2);
-          padding: 20px 24px; border-radius: 10px; border: 1px solid var(--line-soft); }
-  .refs ol { padding-left: 20px; margin: 0; }
-  .refs li { margin: 6px 0; }
-
-  footer { margin-top: 72px; padding-top: 28px; border-top: 1px solid var(--line-soft);
-           color: var(--muted); font-size: 13.5px; }
-  footer a { color: var(--muted); border-bottom-color: var(--line); }
-
-  /* Animated ISL arcs on map */
-  .orbit-arc { stroke-dasharray: 4 6; animation: dashfloat 3s linear infinite; }
-  @keyframes dashfloat { to { stroke-dashoffset: -40; } }
-  .packet-orbit { animation: orbitpulse 2s ease-in-out infinite; }
-  @keyframes orbitpulse {
-    0%, 100% { opacity: 0.9; r: 3.5; } 50% { opacity: 1; r: 5; }
-  }
-
-  /* Signal emitter pulse rings around cities */
-  .emit-ring { fill: none; stroke: var(--coral); stroke-width: 1.5;
-               transform-origin: center; transform-box: fill-box;
-               animation: emitpulse 2.4s ease-out infinite; }
-  .emit-ring.d1 { animation-delay: 0.8s; }
-  .emit-ring.d2 { animation-delay: 1.6s; }
-  @keyframes emitpulse {
-    0%   { r: 3; opacity: 0.8; }
-    100% { r: 40; opacity: 0; }
+  @media (max-width: 680px) {
+    .stage .overlay-title { display: none; }
+    .stage .stats-card { min-width: 180px; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-<header class="hero reveal">
-  <div class="eyebrow">Latency experiment · April 2026</div>
-  <h1>Will our comms <em>move to space?</em></h1>
-  <p class="lede">
-    A physics-grounded race between <strong>silica fibre</strong>, <strong>hollow-core fibre</strong>,
-    and a <strong>LEO constellation</strong> on London↔NYC and London↔Sydney — a thought experiment
-    about the future of long-haul comms. What if hollow-core went global? What if one shared LEO mesh
-    served every application, any bandwidth? Everything here is interactive. Drag the sliders. Fire a packet.
-  </p>
-  <div class="byline">
-    Adam Stuart
-    <span class="sep"></span>
-    <a href="https://github.com/adstuart/latency-fibre-hcf-starlink">source &amp; model</a>
-    <span class="sep"></span>
-    physics reproducible in ~200 lines
-  </div>
+<div class="app">
 
-  <div class="kpis" id="kpis">
-    <div class="kpi">
-      <div class="lbl">London ↔ New York · SMF fibre</div>
-      <div class="num" data-k="nyc_smf">— <span class="u">ms</span></div>
-      <div class="sub">Standard single-mode silica at 0.68 c</div>
-    </div>
-    <div class="kpi accent">
-      <div class="kpi-inner">
-        <div class="lbl">London ↔ New York · Hollow-core</div>
-        <div class="num" data-k="nyc_hcf">— <span class="u">ms</span></div>
-        <div class="sub"><span data-k="nyc_hcf_saving">—</span>% faster — pure physics</div>
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span> Latency <em>Globe</em></div>
+    <div class="crumbs" id="crumbs">Prototype · 3D · Hi-fi</div>
+    <div class="spacer"></div>
+    <a class="pill-btn" href="https://github.com/adstuart/latency-fibre-hcf-starlink/blob/main/model/latency-model.wl" target="_blank" title="Reproducible Wolfram / Mathematica model">↗ Wolfram&nbsp;model&nbsp;(.wl)</a>
+    <a class="pill-btn primary" href="https://github.com/adstuart/latency-fibre-hcf-starlink" target="_blank">↗ Source</a>
+  </header>
+
+  <!-- SIDE NAV -->
+  <aside class="sidenav">
+    <div class="navbtn active" title="Prototype"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div>
+    <div style="flex:1"></div>
+    <div class="navbtn" title="GitHub" onclick="window.open('https://github.com/adstuart/latency-fibre-hcf-starlink','_blank')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.15-1.11-1.46-1.11-1.46-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.99 1.03-2.69-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.55 9.55 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.6 1.03 2.69 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg></div>
+  </aside>
+
+  <!-- STAGE (3D globe) -->
+  <main class="stage">
+    <div class="globe-wrap" id="globeViz"></div>
+
+    <div class="overlay-title">
+      <h1>Will our comms <em>move to space?</em></h1>
+      <p>A physics-grounded race between <strong style="color:var(--smf)">silica fibre</strong>, <strong style="color:var(--hcf)">hollow-core fibre</strong>, and a <strong style="color:var(--stl)">LEO constellation</strong> on London↔NYC and London↔Sydney. Every number is solved symbolically in <a href="https://github.com/adstuart/latency-fibre-hcf-starlink/blob/main/model/latency-model.wl" target="_blank" rel="noopener" style="color: var(--hcf); text-decoration: underline; text-underline-offset: 2px; pointer-events: auto;">Wolfram&nbsp;Language</a> from speed-of-light, refractive index, and orbital geometry.</p>
+
+      <div class="scenarios" id="scenarios">
+        <div class="scenarios-head">What-if scenarios</div>
+        <button class="scen active" data-scen="today">
+          <span class="st">Today's reality</span>
+          <span class="sd">Silica fibre vs Starlink (1.15× grid-routed). Starlink is largely consumer; not generally available for provider-scale backbone.</span>
+          <span class="reality-toggle" data-reality="today">Reality check ↓</span>
+          <div class="reality-pop" data-reality-for="today"><strong>Could this become the universal backbone?</strong> With ~8,100 sats × ~20 Tbps ISLs, aggregate LEO capacity is ~160 Pbps. The global subsea plant is ~4 Zbps — roughly 100× larger. Starlink will probably keep growing for consumer + premium low-latency routes, but fibre still wins on bulk capacity for the foreseeable future.</div>
+        </button>
+        <button class="scen" data-scen="hcf-global">
+          <span class="st">HCF deployed globally</span>
+          <span class="sd">Replace silica with 0.997 c hollow-core on every subsea cable — raced against the same Starlink mesh.</span>
+          <span class="reality-toggle" data-reality="hcf-global">Reality check ↓</span>
+          <div class="reality-pop" data-reality-for="hcf-global"><strong>No physics blocker — it's an engineering and capex problem.</strong> NANF attenuation has dropped below silica (~0.05 vs 0.15 dB/km). The real obstacles: submarine amplifiers are tuned for silica (gas-core EDFA pumps are still lab-stage); continuous-draw manufacturing at 8,000+ km with sub-ppm defects; higher splice loss at thousands of joints per cable. Subsea cables are 25-year capex cycles at ~$500M each — replacing the install base is slow even if the tech shipped tomorrow. <em>When, not if — probably 20–40 years.</em></div>
+        </button>
+        <button class="scen" data-scen="mesh">
+          <span class="st">Expanded LEO mesh</span>
+          <span class="sd">Dense shared constellation, near-geodesic ISL (1.05×) — raced against both silica and hollow-core.</span>
+          <span class="reality-toggle" data-reality="mesh">Reality check ↓</span>
+          <div class="reality-pop" data-reality-for="mesh"><strong>Possible, but with a real capacity ceiling.</strong> Kessler syndrome caps sustainable sat count (est. 50k–500k depending on altitude). Optical ISLs sidestep spectrum, but user downlink is still RF-bound. A &quot;one shared mesh&quot; is really a treaty problem (ITU) rather than a physics problem — today we have fragmented constellations (Starlink, Kuiper, Guowang, IRIS²). <em>Likely outcome: LEO dominates premium low-latency and remote coverage; fibre keeps winning on bulk capacity. Hybrid, not replacement.</em></div>
+        </button>
       </div>
     </div>
-    <div class="kpi accent">
-      <div class="lbl">London ↔ Sydney · Starlink (ideal, lower bound)</div>
-      <div class="num" data-k="syd_stl">— <span class="u">ms</span></div>
-      <div class="sub">Beats today's submarine SMF by <span data-k="syd_stl_saving">—</span>% — geometry</div>
-    </div>
-  </div>
-</header>
 
-<section class="block reveal">
-  <h2>Fire a packet.</h2>
-  <p>
-    Watch a signal travel one round-trip between London and your chosen destination, at speeds
-    set by the current slider values. The finish line is the other continent.
-  </p>
-
-  <div class="switcher" role="tablist" aria-label="Route">
-    <button class="route-btn active" data-route="nyc">London ↔ New York</button>
-    <button class="route-btn" data-route="syd">London ↔ Sydney</button>
-  </div>
-
-  <div class="card race">
-    <div class="race-lane" data-tech="smf">
-      <span class="label"><span class="chip" style="background:var(--smf)"></span>Standard SMF fibre</span>
-      <span class="trail" style="background:var(--smf)"></span>
-      <span class="packet" style="background:var(--smf); color:var(--smf)"></span>
-      <span class="result"></span>
-    </div>
-    <div class="race-lane" data-tech="hcf">
-      <span class="label"><span class="chip" style="background:var(--hcf)"></span>Hollow-core fibre (NANF)</span>
-      <span class="trail" style="background:var(--hcf)"></span>
-      <span class="packet" style="background:var(--hcf); color:var(--hcf)"></span>
-      <span class="result"></span>
-    </div>
-    <div class="race-lane" data-tech="stl">
-      <span class="label"><span class="chip" style="background:var(--stl)"></span>Starlink (ideal LEO + ISL, lower bound)</span>
-      <span class="trail" style="background:var(--stl)"></span>
-      <span class="packet" style="background:var(--stl); color:var(--stl)"></span>
-      <span class="result"></span>
-    </div>
-    <div class="race-lane" data-tech="stlr">
-      <span class="label"><span class="chip" style="background:var(--stl-real)"></span>Starlink (hybrid: LEO access + fibre backhaul)</span>
-      <span class="trail" style="background:var(--stl-real)"></span>
-      <span class="packet" style="background:var(--stl-real); color:var(--stl-real)"></span>
-      <span class="result"></span>
+    <div class="route-tabs">
+      <button class="route-tab active" data-route="nyc">London ↔ NYC</button>
+      <button class="route-tab" data-route="syd">London ↔ Sydney</button>
     </div>
 
-    <div style="display:flex; gap:10px; margin-top:16px; align-items:center; justify-content:space-between; flex-wrap:wrap">
-      <button class="btn" id="fire-btn">▸ Fire packet</button>
-      <div class="byline mono" id="race-status">Idle · animation is time-scaled 1 ms = 18 ms of real time</div>
+    <div class="legend" id="legend">
+      <div class="legend-item active" data-tech="smf"><span class="swatch" style="background:var(--smf); color:var(--smf)"></span>SMF fibre — along subsea cable</div>
+      <div class="legend-item active" data-tech="hcf"><span class="swatch" style="background:var(--hcf); color:var(--hcf)"></span>Hollow-core — same cable (shown parallel)</div>
+      <div class="legend-item active" data-tech="stl"><span class="swatch" style="background:var(--stl); color:var(--stl)"></span>Starlink — uplink + LEO hops + downlink</div>
+      <div class="legend-item" style="opacity:.72; font-style: italic;" title="Starlink altitude 550 km vs Earth radius 6,371 km; drawn to scale (not to GEO, which would be 5.6× further out).">Altitudes to scale · LEO = 550 km ≈ 1/10 of London↔NYC</div>
     </div>
-  </div>
-</section>
 
-<section class="block reveal">
-  <h2>The routes, as they actually run.</h2>
-  <p>
-    Submarine fibre doesn't follow the great circle — it tracks coastlines and shallow seas.
-    Starlink routes through a web of low-Earth-orbit satellites 550 km overhead. The difference in path
-    length is the dominant driver of the latency gap on UK↔Sydney.
-  </p>
-
-  <div class="map-card">
-    <svg class="map" viewBox="0 0 1000 520" xmlns="http://www.w3.org/2000/svg" aria-label="World map with routes">
-      <defs>
-        <linearGradient id="oceanGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stop-color="#EDEAE0"/>
-          <stop offset="1" stop-color="#E4E0D2"/>
-        </linearGradient>
-        <filter id="glow"><feGaussianBlur stdDeviation="2" /></filter>
-      </defs>
-      <rect width="1000" height="520" fill="url(#oceanGrad)"/>
-      <!-- simplified continents (Natural Earth inspired) -->
-      <g fill="#D6D2C2" stroke="#B8B4A4" stroke-width="0.5" stroke-linejoin="round">
-        <!-- North America -->
-        <path d="M80,140 Q100,100 180,95 L240,80 L290,95 L320,130 L340,170 L320,200 L280,230 L240,260 L200,265 L160,250 L120,240 L85,200 Z" />
-        <!-- South America -->
-        <path d="M260,280 L300,270 L320,300 L310,360 L290,420 L270,460 L250,450 L245,400 L250,340 Z" />
-        <!-- Greenland -->
-        <path d="M330,60 L380,55 L400,80 L380,110 L340,105 Z" />
-        <!-- Europe -->
-        <path d="M440,120 L470,110 L510,115 L540,135 L555,160 L530,180 L500,175 L470,170 L450,155 Z" />
-        <!-- Africa -->
-        <path d="M460,200 L510,195 L545,215 L560,260 L555,320 L540,380 L510,420 L490,410 L480,360 L465,300 L455,240 Z" />
-        <!-- Asia -->
-        <path d="M540,110 L620,95 L720,100 L800,120 L860,150 L840,180 L790,200 L740,210 L690,200 L640,190 L590,180 L555,160 Z" />
-        <!-- India/SE Asia -->
-        <path d="M680,220 L720,215 L740,250 L720,280 L700,270 L685,245 Z" />
-        <!-- Australia -->
-        <path d="M780,370 L850,360 L890,370 L910,395 L895,420 L850,425 L810,420 L785,400 Z" />
-      </g>
-
-      <!-- London marker -->
-      <g id="city-london" transform="translate(490,145)">
-        <circle class="emit-ring" r="3"/>
-        <circle class="emit-ring d1" r="3"/>
-        <circle class="emit-ring d2" r="3"/>
-        <circle r="5" fill="#141413"/>
-        <circle r="2" fill="var(--cream)"/>
-        <text x="8" y="-8" font-family="Inter" font-size="12" fill="#141413" font-weight="600">London</text>
-      </g>
-      <!-- New York marker -->
-      <g id="city-nyc" transform="translate(260,180)">
-        <circle r="5" fill="#141413"/>
-        <circle r="2" fill="var(--cream)"/>
-        <text x="-60" y="-8" font-family="Inter" font-size="12" fill="#141413" font-weight="600">New York</text>
-      </g>
-      <!-- Sydney marker -->
-      <g id="city-sydney" transform="translate(855,395)">
-        <circle r="5" fill="#141413"/>
-        <circle r="2" fill="var(--cream)"/>
-        <text x="8" y="-8" font-family="Inter" font-size="12" fill="#141413" font-weight="600">Sydney</text>
-      </g>
-
-      <!-- Great-circle (dashed) -->
-      <path d="M 490,145 Q 380,130 260,180" stroke="#B8B4A4" stroke-width="1" fill="none" stroke-dasharray="3 4" opacity="0.8"/>
-      <path d="M 490,145 Q 650,260 855,395" stroke="#B8B4A4" stroke-width="1" fill="none" stroke-dasharray="3 4" opacity="0.8"/>
-
-      <!-- Submarine cable (curves through ocean, representative) -->
-      <path id="path-smf-nyc" d="M 490,145 C 430,170 370,210 300,200 C 275,195 265,185 260,180"
-            stroke="var(--smf)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.85"/>
-      <!-- LON-SYD via Suez/Asia cable path -->
-      <path id="path-smf-syd" d="M 490,145 C 520,195 535,240 560,280 C 600,330 680,360 760,385 C 800,395 830,395 855,395"
-            stroke="var(--smf)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.85"/>
-
-      <!-- Starlink ISL arcs (above landmass, subtle arc above) -->
-      <path id="path-stl-nyc" class="orbit-arc" d="M 490,145 Q 375,70 260,180"
-            stroke="var(--stl)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8"/>
-      <path id="path-stl-syd" class="orbit-arc" d="M 490,145 Q 680,20 855,395"
-            stroke="var(--stl)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.8"/>
-
-      <!-- Moving packet dots along each path -->
-      <circle class="packet-orbit" r="4" fill="var(--stl)">
-        <animateMotion dur="4s" repeatCount="indefinite">
-          <mpath href="#path-stl-nyc"/>
-        </animateMotion>
-      </circle>
-      <circle class="packet-orbit" r="4" fill="var(--stl)">
-        <animateMotion dur="10s" repeatCount="indefinite">
-          <mpath href="#path-stl-syd"/>
-        </animateMotion>
-      </circle>
-      <circle r="3.5" fill="var(--smf)" opacity="0.85">
-        <animateMotion dur="6s" repeatCount="indefinite"><mpath href="#path-smf-nyc"/></animateMotion>
-      </circle>
-      <circle r="3.5" fill="var(--smf)" opacity="0.85">
-        <animateMotion dur="18s" repeatCount="indefinite"><mpath href="#path-smf-syd"/></animateMotion>
-      </circle>
-    </svg>
-    <div class="map-legend">
-      <div class="item"><span class="dot" style="background:var(--smf)"></span>Submarine fibre route</div>
-      <div class="item"><span class="dot" style="background:var(--stl)"></span>Starlink inter-satellite link (550 km)</div>
-      <div class="item"><span class="dot" style="background:#B8B4A4; border-top: 1px dashed #B8B4A4; background:transparent"></span>Great-circle (geometric shortest)</div>
-      <div class="item" style="margin-left:auto; color: var(--muted)">
-        Simplified cartography — speeds visually exaggerated.
+    <div class="stats-card" id="stats">
+      <div class="row">
+        <div>
+          <div class="k">RTT at 100%</div>
+          <div class="v" id="rtt-leader">— <span class="u">ms</span></div>
+        </div>
+        <div>
+          <div class="k">Distance</div>
+          <div class="v" id="dist-leader">— <span class="u">km</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="k">Fastest</div>
+          <div class="v" id="fastest" style="font-size: 16px; font-family: 'Inter'; font-weight: 600;">—</div>
+        </div>
       </div>
     </div>
-  </div>
-</section>
 
-<section class="block reveal">
-  <h2>Tune the physics.</h2>
-  <p>
-    The three levers that matter most. Every number on this page updates live as you move them.
-  </p>
+    <div class="hop-tip" id="hop-tip"></div>
+  </main>
 
-  <div class="controls">
-    <div class="control">
-      <div class="head">
-        <span class="name">Fibre refractive index (<em>n</em>)</span>
-        <span class="val mono"><span id="v-n">1.468</span></span>
+  <!-- SCRUB timeline -->
+  <section class="scrub">
+    <div class="scrub-head">
+      <h3>Race the packet</h3>
+      <div class="tip">Drag the timeline or press ▸. Each lane shows how far a signal has travelled.</div>
+    </div>
+    <div class="scrub-bar">
+      <div class="lanes" id="lanes"></div>
+    </div>
+    <div class="scrub-control">
+      <button class="play" id="play-btn">▸</button>
+      <input type="range" id="scrub" min="0" max="1000" step="1" value="0" style="display:none;">
+    </div>
+  </section>
+
+  <!-- TWEAKS panel -->
+  <aside class="dock">
+    <div class="dock-section">
+      <h4>Constellation</h4>
+      <div class="preset-row">
+        <button class="preset active" data-constellation="starlink">Starlink<br><span style="opacity:.6; font-weight:400;">550 km</span></button>
+        <button class="preset" data-constellation="kuiper">Kuiper<br><span style="opacity:.6; font-weight:400;">590 km</span></button>
+        <button class="preset" data-constellation="oneweb">OneWeb<br><span style="opacity:.6; font-weight:400;">1,200 km</span></button>
+        <button class="preset" data-constellation="vleo">VLEO<br><span style="opacity:.6; font-weight:400;">340 km</span></button>
       </div>
-      <input type="range" id="s-n" min="1.000" max="1.500" step="0.001" value="1.468">
-      <span class="hint">1.000 = hollow-core (vacuum) · 1.468 = standard silica · speed = c / n</span>
     </div>
-    <div class="control">
-      <div class="head">
-        <span class="name">Starlink altitude</span>
-        <span class="val mono"><span id="v-h">550</span> km</span>
+
+    <div class="dock-section">
+      <h4>Fixed assumptions</h4>
+      <p class="muted">Well-known physical and industrial constants. We hold them fixed and document the rationale here rather than expose fake-precision sliders.</p>
+      <ul style="font-size: 12px; color: var(--ink-dim); line-height: 1.6; padding-left: 16px; margin: 0;">
+        <li><strong style="color: var(--smf);">SMF refractive index n = 1.468</strong> — ITU-T G.652.D silica group index at 1550 nm. Applies to SMF only; HCF uses its own n (see next line). All production submarine cables use G.652.D.</li>
+        <li><strong style="color: var(--hcf);">HCF speed = 0.997 c (n ≈ 1.003)</strong> — NANF hollow-core propagation. Light travels through air, not silica. Physics what-if for transoceanic; today's deployments are metro / intra-DC only.</li>
+        <li><strong>Cable lengths</strong> — LON↔NYC 6,200 km, LON↔SYD 22,000 km (TeleGeography 2025 Submarine Cable Map; representative production paths).</li>
+        <li><strong style="color: var(--stl);">Starlink ISL grid detour = 1.15×</strong> — typical real-world grid routing with ~8,100 operational sats × 4 laser ISLs each (April 2026). 1.00× is the press-release geodesic lower bound; 1.10–1.20× is observed reality; 1.30× is polar hand-off worst case.</li>
+        <li><strong>Speed of light c = 299,792.458 km/s</strong> — vacuum, exact.</li>
+        <li><strong>ISL hop cost = 1 ms</strong> — per-satellite routing overhead on top of geometric propagation.</li>
+      </ul>
+    </div>
+
+    <div class="dock-section">
+      <h4>View</h4>
+      <div class="toggles">
+        <label class="toggle"><input type="checkbox" id="t-auto"> Auto-rotate globe</label>
       </div>
-      <input type="range" id="s-h" min="300" max="1200" step="10" value="550">
-      <span class="hint">Lower = shorter up/down hop, but less visibility per satellite</span>
     </div>
-    <div class="control">
-      <div class="head">
-        <span class="name">Cable-route detour multiplier</span>
-        <span class="val mono"><span id="v-d">1.00</span>×</span>
+
+    <div class="dock-section">
+      <h4>Export</h4>
+      <p class="muted">Grab this for docs, decks, or citations.</p>
+      <div style="display:flex; flex-direction:column; gap: 8px;">
+        <button class="preset" id="copy-numbers">Copy current numbers</button>
+        <a class="preset" href="https://github.com/adstuart/latency-fibre-hcf-starlink" target="_blank" style="text-align:center; text-decoration:none;">Open on GitHub ↗</a>
       </div>
-      <input type="range" id="s-d" min="0.80" max="1.40" step="0.01" value="1.00">
-      <span class="hint">Applied to each corridor's 2025 path: NYC base 6,200 km (~+11% vs great-circle) · SYD base 22,000 km (~+29%)</span>
     </div>
-  </div>
-</section>
-
-<section class="block reveal">
-  <h2>Round-trip latency, broken down.</h2>
-  <p>
-    Each bar is a one-round-trip journey. The solid section is pure propagation —
-    distance divided by the speed of light in the medium. The hatched section is a
-    fixed overhead budget: per-hop router/satellite processing and ground-station handoff.
-    Queuing, coherent-DSP/FEC, ROADMs and legacy DCMs are <em>not</em> modelled — for long-haul
-    links, propagation still dominates.
-  </p>
-  <div class="card" id="breakdown-card">
-    <div class="break" id="break-nyc">
-      <div style="font-family:'Fraunces',serif; font-size:18px; margin-bottom:8px;">London ↔ New York</div>
-    </div>
-    <div class="break" id="break-syd" style="margin-top:24px">
-      <div style="font-family:'Fraunces',serif; font-size:18px; margin-bottom:8px;">London ↔ Sydney</div>
-    </div>
-  </div>
-
-  <div class="callout" id="insight">
-    <strong>The finding.</strong> On the transatlantic route, hollow-core fibre wins outright —
-    it's ~30% faster than an idealised Starlink path on the same corridor. On UK↔Sydney the
-    picture flips for <em>standard</em> fibre: an idealised, fully ISL-linked Starlink beats
-    today's submarine-cable SMF by roughly 30%, because cables can't route anywhere near the
-    great-circle. Hollow-core fibre — <em>if it were ever deployed on that corridor</em> — would
-    still edge out ideal Starlink by a few milliseconds, because 22,000 km at 0.997 c still
-    beats a LEO arc that has to climb to 550 km twice.
-  </div>
-</section>
-
-<section class="block reveal">
-  <h2>Full results table.</h2>
-  <table id="full-table">
-    <thead>
-      <tr>
-        <th>Route</th><th>Technology</th>
-        <th style="text-align:right">Path</th>
-        <th style="text-align:right">Speed</th>
-        <th style="text-align:right">Propagation</th>
-        <th style="text-align:right">Overhead</th>
-        <th style="text-align:right">RTT</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</section>
-
-<section class="block reveal">
-  <h2>The model, in its entirety.</h2>
-  <p>
-    Everything on this page comes from the same handful of equations. They run client-side on every
-    slider change, which is why the page is instantly interactive with no backend.
-  </p>
-  <pre><span class="c">// constants</span>
-<span class="k">const</span> c      = 299_792.458;                    <span class="c">// km/s, vacuum</span>
-<span class="k">const</span> v_smf  = c / n;                          <span class="c">// n = 1.468, G.652.D group index at 1550 nm</span><sup class="cite">[1]</sup>
-<span class="k">const</span> v_hcf  = 0.997 * c;                      <span class="c">// core-propagation speed of Microsoft/Lumenisity NANF</span><sup class="cite">[2]</sup>
-
-<span class="c">// route-specific cable (TeleGeography 2025 representative)</span>
-<span class="k">const</span> cable  = CABLE_BASE_KM[route] * detMul; <span class="c">// NYC 6200, SYD 22000</span>
-
-<span class="c">// fibre one-way</span>
-<span class="k">const</span> oneWay = cable / v + n_hops * 0.05;     <span class="c">// ~50 µs per router hop</span>
-
-<span class="c">// Starlink ideal (geometric lower bound)</span>
-<span class="k">const</span> arc    = gc_km * (R_earth + h) / R_earth;
-<span class="k">const</span> oneWay = (arc + 2*h) / c + n_isl * 1.0 + 2 * 2.0;
-
-<span class="c">// Starlink hybrid (LEO access + ISL-gap fibre backhaul)</span>
-<span class="k">const</span> oneWay = sat_access/c + backhaul_km/v_smf + 6.4;</pre>
-
-  <table style="margin-top:16px">
-    <thead><tr><th>Pair</th><th style="text-align:right">Great-circle</th><th style="text-align:right">Cable route</th><th style="text-align:right">Detour</th></tr></thead>
-    <tbody>
-      <tr><td>London ↔ New York</td><td class="num" id="gc-nyc">—</td><td class="num" id="cable-nyc">—</td><td class="num" id="det-nyc">—</td></tr>
-      <tr><td>London ↔ Sydney</td><td class="num" id="gc-syd">—</td><td class="num" id="cable-syd">—</td><td class="num" id="det-syd">—</td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section class="block reveal">
-  <h2>Caveats.</h2>
-  <ul>
-    <li><strong>HCF is a propagation-speed upper bound, not a wet-plant forecast.</strong> 0.997 c is the speed of light in the hollow core of a NANF fibre<sup class="cite">[2]</sup>. Deploying it at transoceanic scale is <em>not</em> drop-in — splice and connector loss, mode coupling, and the subsea repeater/amplifier ecosystem are all different from SMF. Microsoft's announced deployments are intra-datacentre and metro, not Atlantic.</li>
-    <li><strong>Starlink "ideal" is a geometric lower bound.</strong> A continuous great-circle arc at 550 km with `round(arc/2000)` ISL hops is an order-of-magnitude placeholder, not a topology model. Real paths are discrete, time-varying, visibility-constrained polylines — always ≥ this bound, usually worse. <strong>Reality check (Apr 2026):</strong> the ~8,100-sat Gen1/Gen2 grid (4 laser ISLs per sat) typically routes 1.10–1.20× longer than geodesic; we carry <code>Starlink (grid-routed, 1.15× detour)</code> as a second, more realistic row in <a href="https://github.com/adstuart/latency-fibre-hcf-starlink/blob/main/data/results.json"><code>results.json</code></a>. It adds ~6 ms RTT on LON↔NYC and ~22 ms on LON↔Sydney vs the ideal row.</li>
-    <li><strong>Starlink hybrid ≠ measurement.</strong> The "LEO access + fibre backhaul" row is an illustrative scenario. Actual gateway placement, peering, policy routing and exit points vary — this is not what any given user observes on any given day.</li>
-    <li><strong>Optical-node latency is omitted.</strong> Coherent DSP/FEC (~tens of µs per end), ROADMs, and any residual DCM or OEO regeneration can add small but nonzero fixed costs on top of propagation. EDFA delay is genuinely negligible.</li>
-    <li><strong>Submarine cable routes vary by ±15%.</strong> We use a representative 2025 production path length per corridor<sup class="cite">[4]</sup>; specific cables differ.</li>
-    <li><strong>This is propagation, not the full stack.</strong> TCP/TLS/QUIC handshakes, congestion control, and application parsing dominate real-world latency for short transfers.</li>
-  </ul>
-</section>
-
-<section class="block reveal">
-  <h2>Reproduce this.</h2>
-  <pre>git clone https://github.com/adstuart/latency-fibre-hcf-starlink
-cd latency-fibre-hcf-starlink
-python3 -m venv .venv &amp;&amp; .venv/bin/pip install numpy
-.venv/bin/python model/latency_model.py    <span class="c"># → data/results.json</span>
-<span class="c"># or, the Wolfram Language version:</span>
-wolframscript -file model/latency-model.wl</pre>
-  <p>The model and this page share the same equations. The authoritative source is <code>model/latency_model.py</code>; the in-page JS mirrors it, using the same route-specific cable lengths (NYC 6,200 km, SYD 22,000 km at 1.00× multiplier).</p>
-</section>
-
-<section class="block reveal">
-  <h2>References.</h2>
-  <div class="refs">
-    <ol>
-      <li>ITU-T G.652.D / Corning SMF-28 Ultra — effective group index ~1.468 at 1550 nm.</li>
-      <li>Microsoft Azure blog, <em>"Advancing networking with hollow-core fiber"</em> (2023). Microsoft acquired Lumenisity Dec 2022; NANF core-propagation speed ~0.997 c. Deployments to date are intra-datacentre / metro, not transoceanic.</li>
-      <li>SpaceX Starlink Gen2 FCC filings (IBFS); public ISL RTT measurements on trans-Atlantic paths reported ~95 ms (Oct 2024). Pacific-rim ISL coverage continues to expand through 2025–2026.</li>
-      <li>TeleGeography <em>Submarine Cable Map</em>. Representative London↔NYC: Grace Hopper 7,530 km, AEConnect 5,536 km, EXA Express 5,218 km. No direct London↔Sydney cable exists; routing is via USA or Suez.</li>
-    </ol>
-    <p style="margin-top:14px; font-size:12.5px;">Model reviewed against a Microsoft-Research-caliber physics critique (Apr 2026). Key correction: earlier draft claimed Starlink-ideal beat hollow-core on London↔Sydney — it does not under this model (148.0 ms HCF vs 156.5 ms Starlink ideal RTT at defaults).</p>
-  </div>
-</section>
-
-<footer>
-  <div>
-    <a href="https://github.com/adstuart/latency-fibre-hcf-starlink">github.com/adstuart/latency-fibre-hcf-starlink</a>
-    · generated April 2026 · peer-reviewed physics · model &amp; page © Adam Stuart
-  </div>
-</footer>
+  </aside>
 
 </div>
 
+
+
 <script>
-// -------- physics model (JS port of latency_model.py) --------
+// ============================================================
+// PHYSICS (mirrors model/latency_model.py, with MSR-reviewed fixes)
+// ============================================================
 const C = 299792.458;
 const R_EARTH = 6371.0;
 const T_SAT = 1.0, T_GS = 2.0, T_ROUTER = 0.05, N_HOPS = 8;
 
 const CITIES = {
-  London:   { lat: 51.5074, lon:  -0.1278 },
-  NewYork:  { lat: 40.7128, lon: -74.0060 },
-  Sydney:   { lat:-33.8688, lon: 151.2093 },
+  London:  { lat: 51.5074, lng: -0.1278,  name: 'London' },
+  NewYork: { lat: 40.7128, lng: -74.0060, name: 'New York' },
+  Sydney:  { lat:-33.8688, lng: 151.2093, name: 'Sydney' },
 };
+const CABLE_BASE_KM = { nyc: 6200, syd: 22000 };
+
 function greatCircle(a, b) {
   const toR = x => x * Math.PI / 180;
   const p1 = toR(a.lat), p2 = toR(b.lat);
-  const dp = toR(b.lat - a.lat), dl = toR(b.lon - a.lon);
+  const dp = toR(b.lat - a.lat), dl = toR(b.lng - a.lng);
   const h = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
   return 2 * R_EARTH * Math.asin(Math.sqrt(h));
 }
 
 const STATE = {
-  n: 1.468,      // fibre index
-  h: 550,        // starlink altitude km
-  detMul: 1.00,  // multiplier applied to each route's representative 2025 cable path
+  n: 1.468, h: 550, detMul: 1.00, islMul: 1.15,
+  route: 'nyc',
+  scrub: 0,          // 0..1 (normalized position)
+  playing: false,
+  autoRot: false,
+  scenario: 'today',
+  activeTechs: ['smf','stl'],
 };
 
-// Representative 2025 submarine cable path lengths (TeleGeography-sourced; see refs)
-const CABLE_BASE_KM = {
-  nyc: 6200,   // Grace Hopper / AEConnect / EXA Express corridor, ~+11% vs great-circle
-  syd: 22000,  // multi-system routing via USA or Suez, ~+29% vs great-circle (no direct cable)
+const SCENARIOS = {
+  'today':      { islMul: 1.15, techs: ['smf','stl'] },
+  'hcf-global': { islMul: 1.15, techs: ['hcf','stl'] },
+  'mesh':       { islMul: 1.05, techs: ['smf','hcf','stl'] },
 };
 
 function compute(route) {
-  // route: 'nyc' | 'syd'
-  const dest = route === 'nyc' ? CITIES.NewYork : CITIES.Sydney;
-  const gc = greatCircle(CITIES.London, dest);
-  // Route-specific cable length, scaled by the user's multiplier
+  const src = CITIES.London;
+  const dst = route === 'nyc' ? CITIES.NewYork : CITIES.Sydney;
+  const gc = greatCircle(src, dst);
   const cable = CABLE_BASE_KM[route] * STATE.detMul;
   const v_smf = C / STATE.n;
   const v_hcf = 0.997 * C;
 
-  // fibre
-  const prop_smf = cable / v_smf * 1000;  // ms
+  const prop_smf = cable / v_smf * 1000;
   const prop_hcf = cable / v_hcf * 1000;
   const over_fibre = N_HOPS * T_ROUTER;
 
-  // Starlink ideal (geometric lower bound)
-  const arc = gc * (R_EARTH + STATE.h) / R_EARTH;
+  const arc = gc * (R_EARTH + STATE.h) / R_EARTH * STATE.islMul;
   const n_isl = Math.max(1, Math.round(arc / 2000));
   const prop_stl = (arc + 2 * STATE.h) / C * 1000;
   const over_stl = n_isl * T_SAT + 2 * T_GS;
 
-  // Starlink hybrid: LEO access + long terrestrial/submarine fibre across the ISL gap
   const sat_portion = 2 * STATE.h + 1000;
   const backhaul = Math.max(0, cable - 2000);
   const prop_stlr = sat_portion / C * 1000 + backhaul / v_smf * 1000;
   const over_stlr = 2 * T_SAT + 4 * T_GS + N_HOPS * T_ROUTER;
 
-  const mk = (tech, path, v, prop, over, notes) => ({
-    tech, path, v, prop, over, one_way: prop + over, rtt: 2 * (prop + over), notes
+  const mk = (key, tech, path, v, prop, over) => ({
+    key, tech, path, v, prop, over, one_way: prop + over, rtt: 2*(prop+over)
   });
 
   return {
-    gc, cable,
+    gc, cable, n_isl, arc,
     results: [
-      mk('Standard SMF fibre', cable, v_smf, prop_smf, over_fibre),
-      mk('Hollow-core fibre (NANF)', cable, v_hcf, prop_hcf, over_fibre),
-      mk('Starlink (ideal LEO+ISL lower bound)', arc + 2*STATE.h, C, prop_stl, over_stl),
-      mk('Starlink (hybrid: LEO access + fibre backhaul)', sat_portion + backhaul, 0, prop_stlr, over_stlr),
+      mk('smf',  'Standard SMF fibre',              cable, v_smf, prop_smf, over_fibre),
+      mk('hcf',  'Hollow-core fibre (NANF)',        cable, v_hcf, prop_hcf, over_fibre),
+      mk('stl',  'Starlink (ideal LEO+ISL)',        arc+2*STATE.h, C, prop_stl, over_stl),
+      mk('stlr', 'Starlink (hybrid access+backhaul)', sat_portion+backhaul, 0, prop_stlr, over_stlr),
     ]
   };
 }
 
-// -------- rendering --------
-const PALETTE = {
-  'Standard SMF fibre':                                   'var(--smf)',
-  'Hollow-core fibre (NANF)':                             'var(--hcf)',
-  'Starlink (ideal LEO+ISL lower bound)':                 'var(--stl)',
-  'Starlink (hybrid: LEO access + fibre backhaul)':       'var(--stl-real)',
-};
-const TECHKEY = {
-  'Standard SMF fibre': 'smf',
-  'Hollow-core fibre (NANF)': 'hcf',
-  'Starlink (ideal LEO+ISL lower bound)': 'stl',
-  'Starlink (hybrid: LEO access + fibre backhaul)': 'stlr',
+const TECH_COLOR = {
+  smf:  '#6EA8FE',
+  hcf:  '#F2B84B',
+  stl:  '#E06B8C',
+  stlr: '#B47BE0',
 };
 
-function fmt(n, d=0) { return n.toLocaleString('en-GB', {minimumFractionDigits: d, maximumFractionDigits: d}); }
+// ============================================================
+// GLOBE (globe.gl on top of Three.js)
+// ============================================================
+let world = null;
+function initGlobe() {
+  if (typeof Globe !== 'function') {
+    console.warn('globe.gl not loaded; rendering data-only view');
+    document.getElementById('globeViz').innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#6E756D;font-size:13px;padding:40px;text-align:center;">3D globe requires WebGL. Stats and timeline still work below.</div>';
+    return;
+  }
+  world = Globe()(document.getElementById('globeViz'))
+    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
+    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundColor('rgba(0,0,0,0)')
+    .showAtmosphere(true)
+    .atmosphereColor('#6EA8FE')
+    .atmosphereAltitude(0.15);
 
-function render() {
-  const nyc = compute('nyc');
-  const syd = compute('syd');
+  world.controls().autoRotate = false;
+  world.controls().autoRotateSpeed = 0.35;
+  world.controls().enableDamping = true;
 
-  // KPIs
-  const nyc_smf = nyc.results[0].rtt, nyc_hcf = nyc.results[1].rtt;
-  const syd_smf = syd.results[0].rtt, syd_stl = syd.results[2].rtt;
-  const saveHCF = (nyc_smf - nyc_hcf) / nyc_smf * 100;
-  const saveSTL = (syd_smf - syd_stl) / syd_smf * 100;
+  setupPackets();
+  requestAnimationFrame(raceTick);
+}
 
-  document.querySelector('[data-k="nyc_smf"]').childNodes[0].nodeValue = fmt(nyc_smf, 0) + ' ';
-  document.querySelector('[data-k="nyc_hcf"]').childNodes[0].nodeValue = fmt(nyc_hcf, 0) + ' ';
-  document.querySelector('[data-k="syd_stl"]').childNodes[0].nodeValue = fmt(syd_stl, 0) + ' ';
-  document.querySelector('[data-k="nyc_hcf_saving"]').textContent = fmt(saveHCF, 0);
-  document.querySelector('[data-k="syd_stl_saving"]').textContent = Math.max(0, saveSTL).toFixed(0);
+// ============================================================
+// PACKET RACE — glowing dots travel the paths, synced to physics
+// ============================================================
+const PACKETS = {};              // tech -> { core, halo, cart, cum, total }
+const PACKET_TECHS = ['smf','hcf','stl'];
+let raceStart = 0;               // ms (performance.now)
+let raceFastestDurationMs = 9000;// fastest tech takes ~9 s to cross the globe
+let raceGapMs = 900;             // pause between batches
 
-  // Slider value readouts
-  document.getElementById('v-n').textContent = STATE.n.toFixed(3);
-  document.getElementById('v-h').textContent = STATE.h;
-  document.getElementById('v-d').textContent = STATE.detMul.toFixed(2);
+function setupPackets() {
+  if (!world || typeof THREE === 'undefined') return;
+  PACKET_TECHS.forEach(tech => {
+    if (PACKETS[tech]) return;
+    const col = new THREE.Color(TECH_COLOR[tech]);
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(2.4, 20, 20),
+      new THREE.MeshBasicMaterial({ color: col })
+    );
+    const halo = new THREE.Mesh(
+      new THREE.SphereGeometry(6.5, 20, 20),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.28,
+        blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    const halo2 = new THREE.Mesh(
+      new THREE.SphereGeometry(11, 20, 20),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.10,
+        blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    core.visible = halo.visible = halo2.visible = false;
+    world.scene().add(core); world.scene().add(halo); world.scene().add(halo2);
+    PACKETS[tech] = { core, halo, halo2 };
+  });
+}
 
-  // Great-circle + cable row
-  document.getElementById('gc-nyc').textContent = fmt(nyc.gc, 0) + ' km';
-  document.getElementById('gc-syd').textContent = fmt(syd.gc, 0) + ' km';
-  document.getElementById('cable-nyc').textContent = fmt(nyc.cable, 0) + ' km';
-  document.getElementById('cable-syd').textContent = fmt(syd.cable, 0) + ' km';
-  const pct = (cable, gc) => '+' + ((cable/gc - 1) * 100).toFixed(0) + '%';
-  document.getElementById('det-nyc').textContent = pct(nyc.cable, nyc.gc);
-  document.getElementById('det-syd').textContent = pct(syd.cable, syd.gc);
+function updatePacketGeometry() {
+  if (!world) return;
+  const all = [...fibrePaths(), ...starlinkPath()];
+  all.forEach(p => {
+    const pk = PACKETS[p.tech];
+    if (!pk) return;
+    const cart = p.coords.map(([lat,lng,alt]) => {
+      const c = world.getCoords(lat, lng, alt);
+      return new THREE.Vector3(c.x, c.y, c.z);
+    });
+    const cum = [0];
+    for (let i=1; i<cart.length; i++) cum.push(cum[i-1] + cart[i].distanceTo(cart[i-1]));
+    pk.cart = cart; pk.cum = cum; pk.total = cum[cum.length-1] || 1;
+  });
+  raceStart = 0;  // restart batch on route change
+}
 
-  // Breakdown bars
-  renderBreakdown('break-nyc', nyc, 'London ↔ New York');
-  renderBreakdown('break-syd', syd, 'London ↔ Sydney');
+function posOnPath(pk, progress) {
+  if (!pk.cart) return null;
+  const d = Math.max(0, Math.min(1, progress)) * pk.total;
+  let i = 1;
+  while (i < pk.cum.length && pk.cum[i] < d) i++;
+  if (i >= pk.cum.length) i = pk.cum.length - 1;
+  const t = (d - pk.cum[i-1]) / ((pk.cum[i] - pk.cum[i-1]) || 1);
+  return new THREE.Vector3().lerpVectors(pk.cart[i-1], pk.cart[i], t);
+}
 
-  // Full table
-  const tbody = document.querySelector('#full-table tbody');
-  tbody.innerHTML = '';
-  for (const [route, r] of [['London ↔ New York', nyc], ['London ↔ Sydney', syd]]) {
-    for (const row of r.results) {
-      const speed = row.v ? fmt(row.v/1000, 0) + 'k km/s' : '—';
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td>${route}</td>
-          <td><span class="chip-inline" style="background:${PALETTE[row.tech]}"></span>${row.tech}</td>
-          <td class="num">${fmt(row.path, 0)} km</td>
-          <td class="num">${speed}</td>
-          <td class="num">${row.prop.toFixed(1)} ms</td>
-          <td class="num">${row.over.toFixed(1)} ms</td>
-          <td class="num"><strong>${row.rtt.toFixed(1)} ms</strong></td>
-        </tr>`);
+function raceTick(now) {
+  if (!world) return;
+  if (!raceStart) raceStart = now;
+  const c = compute(STATE.route);
+  const rows = c.results.filter(r => PACKET_TECHS.includes(r.key) && STATE.activeTechs.includes(r.key));
+  // Hide packets for techs not in the active scenario
+  PACKET_TECHS.forEach(tech => {
+    const pk = PACKETS[tech];
+    if (!pk) return;
+    if (!STATE.activeTechs.includes(tech)) {
+      pk.core.visible = pk.halo.visible = pk.halo2.visible = false;
     }
-  }
+  });
+  if (!rows.length) { requestAnimationFrame(raceTick); return; }
+  const fastest = Math.min(...rows.map(r => r.rtt));
+  const slowest = Math.max(...rows.map(r => r.rtt));
+  const timeScale = raceFastestDurationMs / fastest;   // ms per ms-RTT
+  const batchElapsed = now - raceStart;
+  const batchEndMs = slowest * timeScale;
+
+  rows.forEach(me => {
+    const pk = PACKETS[me.key];
+    if (!pk) return;
+    const dur = me.rtt * timeScale;
+    const prog = Math.min(1, batchElapsed / dur);
+    const pt = posOnPath(pk, prog);
+    if (pt) {
+      pk.core.position.copy(pt);
+      pk.halo.position.copy(pt);
+      pk.halo2.position.copy(pt);
+      const visible = prog < 1 + raceGapMs / dur;
+      pk.core.visible = pk.halo.visible = pk.halo2.visible = visible;
+    }
+  });
+
+  if (batchElapsed >= batchEndMs + raceGapMs) raceStart = now;
+  requestAnimationFrame(raceTick);
 }
 
-function renderBreakdown(containerId, data, title) {
-  const el = document.getElementById(containerId);
-  // preserve title node
-  el.innerHTML = `<div style="font-family:'Fraunces',serif; font-size:20px; margin-bottom:12px;">${title}</div>`;
-  // find the max rtt across both routes for consistent scaling
-  const maxRtt = 260; // reasonable visual max
-  for (const r of data.results) {
-    const propWidth = (2 * r.prop / maxRtt * 100).toFixed(1);
-    const overWidth = (2 * r.over / maxRtt * 100).toFixed(2);
-    el.insertAdjacentHTML('beforeend', `
-      <div class="break-row">
-        <div class="lbl">
-          <span class="chip-inline" style="background:${PALETTE[r.tech]}"></span>
-          ${r.tech}
-          <span class="t">${r.v ? fmt(r.v/1000,0)+'k km/s' : 'mixed'} · ${fmt(r.path,0)} km</span>
-        </div>
-        <div class="break-bar">
-          <div class="fill-prop" style="width:${propWidth}%; background:${PALETTE[r.tech]}"></div>
-          <div class="fill-over" style="left:${propWidth}%; width:${overWidth}%"></div>
-        </div>
-        <div class="total">${r.rtt.toFixed(0)} ms</div>
-      </div>`);
-  }
+// POINT markers for cities
+function cityPoints() {
+  return Object.values(CITIES).map(c => ({...c, size: 0.8, color: '#ECEEE9', kind: 'city'}));
 }
 
-// -------- packet race --------
-let currentRoute = 'nyc';
-document.querySelectorAll('.route-btn').forEach(b => {
-  b.addEventListener('click', () => {
-    document.querySelectorAll('.route-btn').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    currentRoute = b.dataset.route;
-    resetRace();
+// ---- Realistic cable waypoints (rough, representative of actual subsea routes)
+// London <-> NYC: hugs AEConnect / Grace Hopper corridor via Cornwall and Nova Scotia.
+// London <-> Sydney: classic Europe-Asia-Oceania via Marseille, Suez, Indian Ocean, SE Asia.
+const CABLE_ROUTES = {
+  nyc: [
+    [51.5, -0.12],   // London landing
+    [50.1, -5.54],   // Cornwall (Bude/Widemouth)
+    [49.0, -15.0],   // NE Atlantic shelf
+    [45.0, -30.0],   // Mid-Atlantic
+    [44.6, -60.0],   // Halifax approach
+    [40.8, -70.0],   // Long Island shelf
+    [40.71, -74.0],  // New York landing
+  ],
+  syd: [
+    [51.5, -0.12],   // London
+    [43.3,   5.4],   // Marseille
+    [36.8,  14.5],   // Sicily Channel
+    [31.6,  32.3],   // Suez
+    [20.0,  39.0],   // Red Sea
+    [12.8,  45.0],   // Bab-el-Mandeb
+    [ 8.0,  77.5],   // Indian Ocean
+    [ 6.9,  79.9],   // Colombo
+    [ 1.29,103.85],  // Singapore
+    [-8.5, 115.2],   // Bali
+    [-19.0,125.0],   // NW Australia shelf
+    [-32.0,115.86],  // Perth
+    [-37.8,144.96],  // Melbourne
+    [-33.87,151.21], // Sydney
+  ],
+};
+
+// Fibre paths (SMF + HCF) as surface polylines along cable waypoints.
+// Both technologies use the same physical route — only the refractive index differs.
+function fibrePaths() {
+  const wp = CABLE_ROUTES[STATE.route];
+  return [
+    { coords: wp.map(([lat,lng]) => [lat, lng, 0.003]), color: TECH_COLOR.smf,
+      stroke: 0.65, tech: 'smf', label: 'Standard SMF fibre — follows subsea cable route' },
+    { coords: wp.map(([lat,lng]) => [lat, lng, 0.022]), color: TECH_COLOR.hcf,
+      stroke: 0.65, tech: 'hcf', label: 'Hollow-core fibre — same cable path, lower n (shown raised for clarity)' },
+  ];
+}
+
+// Starlink zigzag: uplink -> ISL hops at LEO altitude -> downlink.
+// Each intermediate vertex is an actual satellite carrying the packet.
+// Hop count derived from great-circle distance / ~1100 km per ISL hop.
+function starlinkPath() {
+  const src = CITIES.London;
+  const dst = STATE.route === 'nyc' ? CITIES.NewYork : CITIES.Sydney;
+  const altLEO = STATE.h / R_EARTH; // normalised altitude for globe.gl
+  const toRad = Math.PI/180, toDeg = 180/Math.PI;
+  function gcPoint(t) {
+    const lat1=src.lat*toRad, lon1=src.lng*toRad, lat2=dst.lat*toRad, lon2=dst.lng*toRad;
+    const d = 2*Math.asin(Math.sqrt(Math.sin((lat2-lat1)/2)**2 +
+              Math.cos(lat1)*Math.cos(lat2)*Math.sin((lon2-lon1)/2)**2));
+    const A = Math.sin((1-t)*d)/Math.sin(d), B = Math.sin(t*d)/Math.sin(d);
+    const x = A*Math.cos(lat1)*Math.cos(lon1) + B*Math.cos(lat2)*Math.cos(lon2);
+    const y = A*Math.cos(lat1)*Math.sin(lon1) + B*Math.cos(lat2)*Math.sin(lon2);
+    const z = A*Math.sin(lat1) + B*Math.sin(lat2);
+    return [Math.atan2(z,Math.sqrt(x*x+y*y))*toDeg, Math.atan2(y,x)*toDeg];
+  }
+  const R = 6371;
+  const dKm = 2*R*Math.asin(Math.sqrt(Math.sin((dst.lat-src.lat)*toRad/2)**2 +
+              Math.cos(src.lat*toRad)*Math.cos(dst.lat*toRad)*
+              Math.sin((dst.lng-src.lng)*toRad/2)**2));
+  const hops = Math.max(2, Math.round(dKm / 1100));
+
+  // Grid-routing wiggle: perpendicular sinusoidal offset scaled to islMul.
+  // islMul=1.00 => no wiggle (geodesic); 1.15 => ~3 deg amplitude; 1.30 => ~6 deg.
+  const wiggleAmp = Math.max(0, (STATE.islMul - 1) * 20);
+  const wiggleFreq = 3;
+  const dLat = dst.lat - src.lat, dLng = dst.lng - src.lng;
+  const perpN = Math.hypot(dLat, dLng) || 1;
+  const perpLat = -dLng / perpN, perpLng = dLat / perpN;
+
+  const pts = [[src.lat, src.lng, 0.001]];
+  const sats = []; // each ISL waypoint is a real sat the packet hops through
+  for (let i = 1; i <= hops; i++) {
+    const t = i/(hops+1);
+    const [la, lo] = gcPoint(t);
+    const off = wiggleAmp * Math.sin(wiggleFreq * Math.PI * t);
+    const la2 = la + perpLat * off;
+    const lo2 = lo + perpLng * off;
+    pts.push([la2, lo2, altLEO]);
+    sats.push({ lat: la2, lng: lo2, alt: altLEO, kind: 'sat', idx: i });
+  }
+  pts.push([dst.lat, dst.lng, 0.001]);
+  LAST_SATS = sats;
+  const detourPct = Math.round((STATE.islMul - 1) * 100);
+  return [{ coords: pts, color: TECH_COLOR.stl, stroke: 0.7, tech: 'stl',
+            label: `Starlink path — uplink + ${hops} ISL hop${hops>1?'s':''} + downlink${detourPct > 0 ? ` · grid detour +${detourPct}%` : ''}` }];
+}
+let LAST_SATS = [];
+
+// Labeled satellite points: only the sats actually carrying this packet.
+function starlinkSatPoints() {
+  return LAST_SATS.map(s => ({
+    lat: s.lat, lng: s.lng, alt: s.alt,
+    color: '#F5A8BE', kind: 'sat', label: `Sat ${s.idx}`
+  }));
+}
+
+function refreshGlobeVisuals() {
+  if (!world) return;
+  // Build paths first so LAST_SATS is populated
+  const allPaths = [...fibrePaths(), ...starlinkPath()]
+    .filter(p => STATE.activeTechs.includes(p.tech));
+  const stlActive = STATE.activeTechs.includes('stl');
+
+  // Cities + the actual satellites carrying the Starlink packet (only if Starlink is in play)
+  world.pointsData([...cityPoints(), ...(stlActive ? starlinkSatPoints() : [])])
+    .pointLat('lat').pointLng('lng').pointColor('color')
+    .pointAltitude(d => d.alt ?? 0.005)
+    .pointRadius(d => d.kind === 'sat' ? 0.55 : 0.45);
+
+  world.pathsData(allPaths)
+    .pathPoints('coords')
+    .pathPointLat(p => p[0]).pathPointLng(p => p[1]).pathPointAlt(p => p[2])
+    .pathColor(d => d.color)
+    .pathStroke(d => d.stroke * 2)
+    .pathDashLength(1).pathDashGap(0)
+    .pathDashInitialGap(0)
+    .pathDashAnimateTime(0)
+    .pathLabel(d => `<div style="background:#151A1F;border:1px solid #252C33;padding:6px 10px;border-radius:6px;font-family:Inter;font-size:12px;color:#ECEEE9;">${d.label}</div>`)
+    .pathTransitionDuration(0);
+
+  updatePacketGeometry();
+
+  // Label the actual satellite hops (only if Starlink is in play)
+  world.labelsData([
+    ...Object.values(CITIES).map(c => ({...c, label: c.name, kind:'city'})),
+    ...(stlActive ? starlinkSatPoints().map(s => ({ lat: s.lat, lng: s.lng, alt: s.alt, label: s.label, kind: 'sat' })) : [])
+  ])
+    .labelLat('lat').labelLng('lng').labelText('label')
+    .labelAltitude(d => (d.alt ?? 0.005) + 0.01)
+    .labelSize(d => d.kind === 'sat' ? 0.7 : 1.15)
+    .labelColor(d => d.kind === 'sat' ? '#F5A8BE' : '#ECEEE9')
+    .labelDotRadius(0);
+
+  world.arcsData([]); // no ambient mesh
+
+  world.controls().autoRotate = STATE.autoRot;
+}
+
+// ============================================================
+// SCRUB timeline: four lanes, each a packet travelling its tech
+// ============================================================
+function renderLanes() {
+  const c = compute(STATE.route);
+  const lanes = document.getElementById('lanes');
+  lanes.innerHTML = '';
+  const shown = c.results.filter(r => r.key !== 'stlr' && STATE.activeTechs.includes(r.key));
+  if (!shown.length) return;
+  const maxRtt = Math.max(...shown.map(r => r.rtt));
+  const laneH = 12;
+  shown.forEach((r, i) => {
+    const lane = document.createElement('div');
+    lane.className = 'lane';
+    lane.style.top = (6 + i * laneH) + 'px';
+    lane.style.color = TECH_COLOR[r.key];
+    const frac = Math.min(1, (STATE.scrub * maxRtt) / r.rtt);
+    lane.innerHTML = `
+      <div class="track"></div>
+      <div class="fill" style="width: calc(${frac} * (100% - 84px))"></div>
+      <div class="dot" style="left: calc(12px + ${frac} * (100% - 84px))"></div>
+      <div class="tag">${r.rtt.toFixed(1)} ms</div>
+    `;
+    lanes.appendChild(lane);
+  });
+}
+
+// ============================================================
+// Stats card + data sheet
+// ============================================================
+function renderStats() {
+  const c = compute(STATE.route);
+  const active = c.results.filter(r => STATE.activeTechs.includes(r.key));
+  if (!active.length) return;
+  const sorted = [...active].sort((a,b) => a.rtt - b.rtt);
+  const leader = sorted[0];
+  document.getElementById('rtt-leader').innerHTML = leader.rtt.toFixed(1) + ' <span class="u">ms RTT</span>';
+  document.getElementById('dist-leader').innerHTML = (leader.path).toLocaleString('en-GB', {maximumFractionDigits:0}) + ' <span class="u">km</span>';
+  document.getElementById('fastest').textContent = leader.tech;
+}
+
+// ============================================================
+// Interactions
+// ============================================================
+document.querySelectorAll('.route-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.route-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    STATE.route = btn.dataset.route;
+    refreshGlobeVisuals();
+    renderAll();
+    if (world) {
+      const src = CITIES.London;
+      const dst = STATE.route === 'nyc' ? CITIES.NewYork : CITIES.Sydney;
+      world.pointOfView({ lat: (src.lat+dst.lat)/2, lng: (src.lng+dst.lng)/2, altitude: 2.2 }, 1200);
+    }
   });
 });
 
-function resetRace() {
-  document.querySelectorAll('.race-lane').forEach(lane => {
-    const p = lane.querySelector('.packet');
-    const t = lane.querySelector('.trail');
-    const r = lane.querySelector('.result');
-    p.style.transition = 'none';
-    p.style.left = '4px';
-    t.style.width = '0';
-    t.style.transition = 'none';
-    r.classList.remove('show');
-    r.textContent = '';
+document.getElementById('t-auto').addEventListener('change', e => { STATE.autoRot = e.target.checked; if (world) world.controls().autoRotate = e.target.checked; });
+
+// Scrub
+const scrub = document.getElementById('scrub');
+scrub.addEventListener('input', () => { STATE.scrub = scrub.value / 1000; renderLanes(); });
+
+const playBtn = document.getElementById('play-btn');
+let rafId = null, startT = 0, startPos = 0, dur = 3000;
+function tick(now) {
+  if (!STATE.playing) return;
+  const t = (now - startT) / dur;
+  STATE.scrub = Math.min(1, startPos + t);
+  scrub.value = STATE.scrub * 1000;
+  renderLanes();
+  if (STATE.scrub < 1) rafId = requestAnimationFrame(tick);
+  else { STATE.playing = false; playBtn.textContent = '▸'; }
+}
+playBtn.addEventListener('click', () => {
+  STATE.playing = !STATE.playing;
+  playBtn.textContent = STATE.playing ? '❚❚' : '▸';
+  if (STATE.playing) {
+    if (STATE.scrub >= 1) STATE.scrub = 0;
+    startPos = STATE.scrub; startT = performance.now();
+    rafId = requestAnimationFrame(tick);
+  } else if (rafId) cancelAnimationFrame(rafId);
+});
+
+// Constellation picker (altitude swap)
+const CONSTELLATIONS = {
+  starlink: 550, kuiper: 590, oneweb: 1200, vleo: 340,
+};
+document.querySelectorAll('.preset[data-constellation]').forEach(p => p.addEventListener('click', () => {
+  document.querySelectorAll('.preset[data-constellation]').forEach(x => x.classList.remove('active'));
+  p.classList.add('active');
+  STATE.h = CONSTELLATIONS[p.dataset.constellation];
+  refreshGlobeVisuals();
+  renderAll();
+}));
+
+document.querySelectorAll('.scen').forEach(b => b.addEventListener('click', (ev) => {
+  if (ev.target.closest('.reality-toggle, .reality-pop')) return;
+  document.querySelectorAll('.scen').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  const s = SCENARIOS[b.dataset.scen];
+  STATE.scenario = b.dataset.scen;
+  STATE.islMul = s.islMul;
+  STATE.activeTechs = s.techs.slice();
+  // Sync the legend visual state to reflect which techs are running.
+  document.querySelectorAll('.legend-item[data-tech]').forEach(el => {
+    el.classList.toggle('active', STATE.activeTechs.includes(el.dataset.tech));
   });
+  raceStart = 0;
+  refreshGlobeVisuals();
+  renderAll();
+}));
+document.querySelectorAll('.reality-toggle').forEach(t => t.addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  const key = t.dataset.reality;
+  const pop = document.querySelector(`.reality-pop[data-reality-for="${key}"]`);
+  if (!pop) return;
+  const wasOpen = pop.classList.contains('open');
+  document.querySelectorAll('.reality-pop').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.reality-toggle').forEach(x => { x.textContent = 'Reality check ↓'; });
+  if (!wasOpen) {
+    pop.classList.add('open');
+    t.textContent = 'Hide reality check ↑';
+  }
+}));
+
+// Sheets
+// Copy numbers
+document.getElementById('copy-numbers').addEventListener('click', () => {
+  const c = compute(STATE.route);
+  const lines = [
+    `# Latency Globe · ${STATE.route === 'nyc' ? 'London↔NYC' : 'London↔Sydney'}`,
+    `# n=${STATE.n} · altitude=${STATE.h}km · ISL×=${STATE.islMul.toFixed(2)}`,
+    ...c.results.map(r => `${r.tech.padEnd(40)}  RTT ${r.rtt.toFixed(1).padStart(6)} ms  path ${Math.round(r.path).toLocaleString('en-GB').padStart(8)} km`)
+  ];
+  navigator.clipboard.writeText(lines.join('\n'));
+  document.getElementById('copy-numbers').textContent = 'Copied ✓';
+  setTimeout(() => document.getElementById('copy-numbers').textContent = 'Copy current numbers', 1400);
+});
+
+// ============================================================
+// Init
+// ============================================================
+function renderAll() { renderLanes(); renderStats(); }
+
+try { initGlobe(); } catch (e) { console.error('globe init failed:', e); }
+
+// Initial camera target
+if (world) {
+  setTimeout(() => {
+    const src = CITIES.London;
+    const dst = STATE.route === 'nyc' ? CITIES.NewYork : CITIES.Sydney;
+    world.pointOfView({ lat: (src.lat+dst.lat)/2, lng: (src.lng+dst.lng)/2, altitude: 2.2 }, 0);
+  }, 300);
 }
 
-function fireRace() {
-  const data = compute(currentRoute);
-  const lanes = {
-    smf: data.results[0], hcf: data.results[1],
-    stl: data.results[2], stlr: data.results[3],
-  };
-  // scale: fastest lane takes 1.5 s, others proportional
-  const maxRtt = Math.max(...Object.values(lanes).map(r => r.rtt));
-  const SCALE_MS = 2200 / maxRtt;
-  document.getElementById('race-status').textContent = `Racing · animation speed ${(1/SCALE_MS).toFixed(0)} ms real = 1 s visual`;
+refreshGlobeVisuals();
+renderAll();
 
-  document.querySelectorAll('.race-lane').forEach(lane => {
-    const tech = lane.dataset.tech;
-    const r = lanes[tech];
-    const dur = r.rtt * SCALE_MS;
-    const packet = lane.querySelector('.packet');
-    const trail = lane.querySelector('.trail');
-    const result = lane.querySelector('.result');
-    // reset
-    packet.style.transition = 'none';
-    packet.style.left = '4px';
-    trail.style.width = '0';
-    trail.style.transition = 'none';
-    result.classList.remove('show');
-
-    // force reflow
-    void packet.offsetWidth;
-
-    // animate
-    const laneRect = lane.getBoundingClientRect();
-    const targetLeft = laneRect.width - 16; // px from left
-    packet.style.transition = `left ${dur}ms linear`;
-    packet.style.left = targetLeft + 'px';
-    trail.style.transition = `width ${dur}ms linear`;
-    trail.style.width = targetLeft + 'px';
-
-    setTimeout(() => {
-      result.textContent = `${r.rtt.toFixed(0)} ms RTT`;
-      result.classList.add('show');
-    }, dur + 40);
-  });
-}
-document.getElementById('fire-btn').addEventListener('click', fireRace);
-
-// -------- sliders --------
-document.getElementById('s-n').addEventListener('input', e => { STATE.n = parseFloat(e.target.value); render(); });
-document.getElementById('s-h').addEventListener('input', e => { STATE.h = parseFloat(e.target.value); render(); });
-document.getElementById('s-d').addEventListener('input', e => { STATE.detMul = parseFloat(e.target.value); render(); });
-
-// -------- reveal on scroll --------
-const io = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
-document.querySelectorAll('.reveal').forEach(el => io.observe(el));
-
-// -------- first render --------
-render();
-// reveal hero immediately
-requestAnimationFrame(() => document.querySelector('header.hero').classList.add('in'));
-
-// fire the race once, 600ms after load, as a demo
-setTimeout(fireRace, 700);
+// Handle resize
+window.addEventListener('resize', () => {
+  if (!world) return;
+  const s = document.getElementById('globeViz');
+  world.width(s.clientWidth).height(s.clientHeight);
+});
 </script>
 </body>
 </html>
