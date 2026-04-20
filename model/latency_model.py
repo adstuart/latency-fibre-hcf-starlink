@@ -11,9 +11,12 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 
 C_KMS = 299_792.458                 # speed of light in vacuum, km/s
-N_SMF = 1.468                       # effective group index of standard single-mode silica fibre (ITU-T G.652)
+N_SMF = 1.468                       # effective GROUP index of standard single-mode silica fibre (ITU-T G.652.D, ~1550 nm)
 V_SMF = C_KMS / N_SMF               # ≈ 204,218 km/s  (≈ 0.681 c)
-V_HCF = 0.9970 * C_KMS              # hollow-core NANF, Microsoft/Lumenisity published figure
+# Hollow-core fibre: 0.997c is the propagation speed of the FIBRE CORE (Microsoft/Lumenisity NANF, C-band).
+# This is NOT a transoceanic deployment guarantee — splice/connector loss, mode coupling, and subsea
+# repeater/amplifier ecosystem maturity make wet-plant HCF a physics what-if for now, not a drop-in.
+V_HCF = 0.9970 * C_KMS
 V_VAC = C_KMS                       # Starlink: c in vacuum, ~c in atmosphere
 
 EARTH_R_KM = 6371.0
@@ -83,23 +86,27 @@ def fibre_result(route: str, tech: str, v: float, cable_km: float, notes: str) -
 
 
 def starlink_idealised(route: str, gc_km: float) -> Result:
-    """Pure LEO + ISL great-circle — the physical upper bound for Starlink."""
+    """Geometric LOWER BOUND on Starlink RTT: continuous great-circle LEO arc + c in vacuum.
+    Real constellation routing uses discrete, time-varying, visibility-constrained polylines —
+    actual paths are always ≥ this and usually worse. Use as a physical lower bound only.
+    """
     arc = leo_arc_km(gc_km)
     up_down = 2 * STARLINK_ALT_KM                     # ground → sat, sat → ground
-    # Hop count roughly every ~2,000 km of arc (rough ISL geometry); each hop adds processing
+    # Hop count every ~2,000 km of arc is an order-of-magnitude placeholder, NOT a topology model.
     n_hops = max(1, round(arc / 2_000))
     path = arc + up_down
     prop = path / C_KMS * 1000.0
     overhead = n_hops * T_SAT_PROC_MS + 2 * T_GS_PROC_MS
     one_way = prop + overhead
-    notes = f"LEO great-circle at {STARLINK_ALT_KM:.0f} km, {n_hops} ISL hops, c in vacuum."
-    return Result(route, "Starlink (ideal LEO+ISL)", path, C_KMS, prop, overhead, one_way, 2 * one_way, notes)
+    notes = f"Idealised lower bound: LEO great-circle at {STARLINK_ALT_KM:.0f} km, {n_hops} ISL hops."
+    return Result(route, "Starlink (ideal LEO+ISL lower bound)", path, C_KMS, prop, overhead, one_way, 2 * one_way, notes)
 
 
 def starlink_realistic(route: str, gc_km: float, fibre_backhaul_km: float, backhaul_v: float) -> Result:
     """
-    Realistic 'today' model: LEO first/last mile, terrestrial fibre across ocean basins
-    where the ISL mesh doesn't yet form a usable path.
+    Illustrative hybrid scenario: LEO first/last-mile access, then terrestrial/submarine fibre
+    across the ISL mesh gap. Not an observational measurement — actual gateway placement,
+    routing, peering and traffic exit points vary.
     """
     up_down = 2 * STARLINK_ALT_KM
     # Assume 500 km of LEO on each side before handing off to a ground gateway
@@ -113,7 +120,7 @@ def starlink_realistic(route: str, gc_km: float, fibre_backhaul_km: float, backh
         f"LEO access hop each side, plus {fibre_backhaul_km:,.0f} km of terrestrial/submarine "
         "fibre where the ISL mesh gap exists."
     )
-    return Result(route, "Starlink (realistic today)", path, 0.0, sat_prop + fibre_prop, overhead, one_way, 2 * one_way, notes)
+    return Result(route, "Starlink (hybrid: LEO access + fibre backhaul)", path, 0.0, sat_prop + fibre_prop, overhead, one_way, 2 * one_way, notes)
 
 
 def build_all() -> list[Result]:
@@ -128,7 +135,8 @@ def build_all() -> list[Result]:
         ))
         results.append(fibre_result(
             route, "Hollow-core fibre (NANF)", V_HCF, cable_km,
-            f"v=0.997 c ≈ {V_HCF:,.0f} km/s. Same cable routing; latency saving is pure physics."
+            f"v=0.997 c ≈ {V_HCF:,.0f} km/s. Same cable routing assumed; this is a physics "
+            "what-if — HCF is not yet deployed on transoceanic wet-plant at scale."
         ))
         results.append(starlink_idealised(route, gc))
         # "Realistic today": assume the transoceanic leg rides fibre at SMF speed

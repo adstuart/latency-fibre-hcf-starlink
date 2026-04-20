@@ -46,22 +46,22 @@
       "overhead_ms": 0.4,
       "one_way_ms": 21.1432035128239,
       "rtt_ms": 42.2864070256478,
-      "notes": "v=0.997 c ≈ 298,893 km/s. Same cable routing; latency saving is pure physics."
+      "notes": "v=0.997 c ≈ 298,893 km/s. Same cable routing assumed; this is a physics what-if — HCF is not yet deployed on transoceanic wet-plant at scale."
     },
     {
       "route": "London ↔ New York",
-      "tech": "Starlink (ideal LEO+ISL)",
+      "tech": "Starlink (ideal LEO+ISL lower bound)",
       "path_km": 7151.092090090473,
       "speed_kms": 299792.458,
       "propagation_ms": 23.85347562709691,
       "overhead_ms": 7.0,
       "one_way_ms": 30.85347562709691,
       "rtt_ms": 61.70695125419382,
-      "notes": "LEO great-circle at 550 km, 3 ISL hops, c in vacuum."
+      "notes": "Idealised lower bound: LEO great-circle at 550 km, 3 ISL hops."
     },
     {
       "route": "London ↔ New York",
-      "tech": "Starlink (realistic today)",
+      "tech": "Starlink (hybrid: LEO access + fibre backhaul)",
       "path_km": 7186.328676816826,
       "speed_kms": 0.0,
       "propagation_ms": 31.77641205642614,
@@ -90,22 +90,22 @@
       "overhead_ms": 0.4,
       "one_way_ms": 74.00491569066546,
       "rtt_ms": 148.0098313813309,
-      "notes": "v=0.997 c ≈ 298,893 km/s. Same cable routing; latency saving is pure physics."
+      "notes": "v=0.997 c ≈ 298,893 km/s. Same cable routing assumed; this is a physics what-if — HCF is not yet deployed on transoceanic wet-plant at scale."
     },
     {
       "route": "London ↔ Sydney",
-      "tech": "Starlink (ideal LEO+ISL)",
+      "tech": "Starlink (ideal LEO+ISL lower bound)",
       "path_km": 19560.997249293276,
       "speed_kms": 299792.458,
       "propagation_ms": 65.24846348634053,
       "overhead_ms": 13.0,
       "one_way_ms": 78.24846348634053,
       "rtt_ms": 156.49692697268105,
-      "notes": "LEO great-circle at 550 km, 9 ISL hops, c in vacuum."
+      "notes": "Idealised lower bound: LEO great-circle at 550 km, 9 ISL hops."
     },
     {
       "route": "London ↔ Sydney",
-      "tech": "Starlink (realistic today)",
+      "tech": "Starlink (hybrid: LEO access + fibre backhaul)",
       "path_km": 22186.328676816825,
       "speed_kms": 0.0,
       "propagation_ms": 105.22722581905921,

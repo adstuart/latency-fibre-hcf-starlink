@@ -326,9 +326,9 @@
       </div>
     </div>
     <div class="kpi accent">
-      <div class="lbl">London ↔ Sydney · Starlink (ideal)</div>
+      <div class="lbl">London ↔ Sydney · Starlink (ideal, lower bound)</div>
       <div class="num" data-k="syd_stl">— <span class="u">ms</span></div>
-      <div class="sub">Beats fibre by <span data-k="syd_stl_saving">—</span>% with full ISL mesh</div>
+      <div class="sub">Beats today's submarine SMF by <span data-k="syd_stl_saving">—</span>% — geometry</div>
     </div>
   </div>
 </header>
@@ -359,13 +359,13 @@
       <span class="result"></span>
     </div>
     <div class="race-lane" data-tech="stl">
-      <span class="label"><span class="chip" style="background:var(--stl)"></span>Starlink (ideal LEO + ISL)</span>
+      <span class="label"><span class="chip" style="background:var(--stl)"></span>Starlink (ideal LEO + ISL, lower bound)</span>
       <span class="trail" style="background:var(--stl)"></span>
       <span class="packet" style="background:var(--stl); color:var(--stl)"></span>
       <span class="result"></span>
     </div>
     <div class="race-lane" data-tech="stlr">
-      <span class="label"><span class="chip" style="background:var(--stl-real)"></span>Starlink (realistic today)</span>
+      <span class="label"><span class="chip" style="background:var(--stl-real)"></span>Starlink (hybrid: LEO access + fibre backhaul)</span>
       <span class="trail" style="background:var(--stl-real)"></span>
       <span class="packet" style="background:var(--stl-real); color:var(--stl-real)"></span>
       <span class="result"></span>
@@ -509,11 +509,11 @@
     </div>
     <div class="control">
       <div class="head">
-        <span class="name">Cable-route detour vs great-circle</span>
-        <span class="val mono">+<span id="v-d">29</span>%</span>
+        <span class="name">Cable-route detour multiplier</span>
+        <span class="val mono"><span id="v-d">1.00</span>×</span>
       </div>
-      <input type="range" id="s-d" min="0" max="60" step="1" value="29">
-      <span class="hint">Submarine cables track coastlines; London↔Sydney is ~29% longer</span>
+      <input type="range" id="s-d" min="0.80" max="1.40" step="0.01" value="1.00">
+      <span class="hint">Applied to each corridor's 2025 path: NYC base 6,200 km (~+11% vs great-circle) · SYD base 22,000 km (~+29%)</span>
     </div>
   </div>
 </section>
@@ -522,8 +522,10 @@
   <h2>Round-trip latency, broken down.</h2>
   <p>
     Each bar is a one-round-trip journey. The solid section is pure propagation —
-    distance divided by the speed of light in the medium. The hatched section is
-    overhead: processing, queuing, router hops. For long-haul links, propagation dominates.
+    distance divided by the speed of light in the medium. The hatched section is a
+    fixed overhead budget: per-hop router/satellite processing and ground-station handoff.
+    Queuing, coherent-DSP/FEC, ROADMs and legacy DCMs are <em>not</em> modelled — for long-haul
+    links, propagation still dominates.
   </p>
   <div class="card" id="breakdown-card">
     <div class="break" id="break-nyc">
@@ -536,9 +538,12 @@
 
   <div class="callout" id="insight">
     <strong>The finding.</strong> On the transatlantic route, hollow-core fibre wins outright —
-    it's faster than an idealised Starlink path. On UK↔Sydney the picture flips: a fully
-    inter-satellite-linked Starlink beats even hollow-core, because submarine cables can't
-    route anywhere near the great-circle between those two continents.
+    it's ~30% faster than an idealised Starlink path on the same corridor. On UK↔Sydney the
+    picture flips for <em>standard</em> fibre: an idealised, fully ISL-linked Starlink beats
+    today's submarine-cable SMF by roughly 30%, because cables can't route anywhere near the
+    great-circle. Hollow-core fibre — <em>if it were ever deployed on that corridor</em> — would
+    still edge out ideal Starlink by a few milliseconds, because 22,000 km at 0.997 c still
+    beats a LEO arc that has to climb to 550 km twice.
   </div>
 </section>
 
@@ -567,17 +572,20 @@
   </p>
   <pre><span class="c">// constants</span>
 <span class="k">const</span> c      = 299_792.458;                    <span class="c">// km/s, vacuum</span>
-<span class="k">const</span> v_smf  = c / n;                          <span class="c">// n = 1.468 for ITU-T G.652 silica</span><sup class="cite">[1]</sup>
-<span class="k">const</span> v_hcf  = 0.997 * c;                      <span class="c">// Microsoft / Lumenisity NANF</span><sup class="cite">[2]</sup>
+<span class="k">const</span> v_smf  = c / n;                          <span class="c">// n = 1.468, G.652.D group index at 1550 nm</span><sup class="cite">[1]</sup>
+<span class="k">const</span> v_hcf  = 0.997 * c;                      <span class="c">// core-propagation speed of Microsoft/Lumenisity NANF</span><sup class="cite">[2]</sup>
+
+<span class="c">// route-specific cable (TeleGeography 2025 representative)</span>
+<span class="k">const</span> cable  = CABLE_BASE_KM[route] * detMul; <span class="c">// NYC 6200, SYD 22000</span>
 
 <span class="c">// fibre one-way</span>
-<span class="k">const</span> oneWay = cable_km / v + n_hops * 0.05;   <span class="c">// ~50 µs per router hop</span>
+<span class="k">const</span> oneWay = cable / v + n_hops * 0.05;     <span class="c">// ~50 µs per router hop</span>
 
-<span class="c">// Starlink idealised (LEO + inter-satellite laser)</span>
+<span class="c">// Starlink ideal (geometric lower bound)</span>
 <span class="k">const</span> arc    = gc_km * (R_earth + h) / R_earth;
 <span class="k">const</span> oneWay = (arc + 2*h) / c + n_isl * 1.0 + 2 * 2.0;
 
-<span class="c">// Starlink realistic (ISL gap → terrestrial backhaul)</span>
+<span class="c">// Starlink hybrid (LEO access + ISL-gap fibre backhaul)</span>
 <span class="k">const</span> oneWay = sat_access/c + backhaul_km/v_smf + 6.4;</pre>
 
   <table style="margin-top:16px">
@@ -592,11 +600,12 @@
 <section class="block reveal">
   <h2>Caveats.</h2>
   <ul>
-    <li><strong>Hollow-core isn't deployed on these routes yet.</strong> Microsoft have announced intra-datacentre and metro deployments<sup class="cite">[2]</sup>; trans-oceanic HCF is a "what if" scenario for now.</li>
-    <li><strong>Starlink's ISL mesh is incomplete.</strong> Coverage is best within single hemispheres and across the North Atlantic; full London↔Sydney routing via pure ISL is still aspirational<sup class="cite">[3]</sup>.</li>
-    <li><strong>This is propagation, not the full stack.</strong> TCP handshake, TLS, congestion control and application parsing add real-world latency that dominates for short transfers.</li>
-    <li><strong>Submarine cable routes vary.</strong> We use a representative 2025 production path length per corridor<sup class="cite">[4]</sup>; specific cables differ by ±15%.</li>
-    <li><strong>Overhead is a budget, not a measurement.</strong> 50 µs per router hop × 8 hops is a reasonable long-haul placeholder; reality has jitter, queuing and reroutes.</li>
+    <li><strong>HCF is a propagation-speed upper bound, not a wet-plant forecast.</strong> 0.997 c is the speed of light in the hollow core of a NANF fibre<sup class="cite">[2]</sup>. Deploying it at transoceanic scale is <em>not</em> drop-in — splice and connector loss, mode coupling, and the subsea repeater/amplifier ecosystem are all different from SMF. Microsoft's announced deployments are intra-datacentre and metro, not Atlantic.</li>
+    <li><strong>Starlink "ideal" is a geometric lower bound.</strong> A continuous great-circle arc at 550 km with `round(arc/2000)` ISL hops is an order-of-magnitude placeholder, not a topology model. Real paths are discrete, time-varying, visibility-constrained polylines — always ≥ this bound, usually worse.</li>
+    <li><strong>Starlink hybrid ≠ measurement.</strong> The "LEO access + fibre backhaul" row is an illustrative scenario. Actual gateway placement, peering, policy routing and exit points vary — this is not what any given user observes on any given day.</li>
+    <li><strong>Optical-node latency is omitted.</strong> Coherent DSP/FEC (~tens of µs per end), ROADMs, and any residual DCM or OEO regeneration can add small but nonzero fixed costs on top of propagation. EDFA delay is genuinely negligible.</li>
+    <li><strong>Submarine cable routes vary by ±15%.</strong> We use a representative 2025 production path length per corridor<sup class="cite">[4]</sup>; specific cables differ.</li>
+    <li><strong>This is propagation, not the full stack.</strong> TCP/TLS/QUIC handshakes, congestion control, and application parsing dominate real-world latency for short transfers.</li>
   </ul>
 </section>
 
@@ -608,25 +617,26 @@ python3 -m venv .venv &amp;&amp; .venv/bin/pip install numpy
 .venv/bin/python model/latency_model.py    <span class="c"># → data/results.json</span>
 <span class="c"># or, the Wolfram Language version:</span>
 wolframscript -file model/latency-model.wl</pre>
-  <p>The model and this page are the same equations. Model lives in <code>model/latency_model.py</code>; the interactive JS in this page is a line-for-line port.</p>
+  <p>The model and this page share the same equations. The authoritative source is <code>model/latency_model.py</code>; the in-page JS mirrors it, using the same route-specific cable lengths (NYC 6,200 km, SYD 22,000 km at 1.00× multiplier).</p>
 </section>
 
 <section class="block reveal">
   <h2>References.</h2>
   <div class="refs">
     <ol>
-      <li>ITU-T G.652 / Corning SMF-28 Ultra — group index ~1.467 at 1550 nm.</li>
-      <li>Microsoft Azure blog, <em>"Advancing networking with hollow-core fiber"</em> (2023). Microsoft acquired Lumenisity in Dec 2022; NANF fibre operates at ~0.997 c with ~47% latency reduction vs silica.</li>
+      <li>ITU-T G.652.D / Corning SMF-28 Ultra — effective group index ~1.468 at 1550 nm.</li>
+      <li>Microsoft Azure blog, <em>"Advancing networking with hollow-core fiber"</em> (2023). Microsoft acquired Lumenisity Dec 2022; NANF core-propagation speed ~0.997 c. Deployments to date are intra-datacentre / metro, not transoceanic.</li>
       <li>SpaceX Starlink Gen2 FCC filings (IBFS); public ISL RTT measurements on trans-Atlantic paths reported ~95 ms (Oct 2024). Pacific-rim ISL coverage continues to expand through 2025–2026.</li>
-      <li>TeleGeography <em>Submarine Cable Map</em>. Representative London↔NYC: Grace Hopper 7,530 km, AEConnect 5,536 km, EXA Express 5,218 km. No direct London↔Sydney cable exists.</li>
+      <li>TeleGeography <em>Submarine Cable Map</em>. Representative London↔NYC: Grace Hopper 7,530 km, AEConnect 5,536 km, EXA Express 5,218 km. No direct London↔Sydney cable exists; routing is via USA or Suez.</li>
     </ol>
+    <p style="margin-top:14px; font-size:12.5px;">Model reviewed against a Microsoft-Research-caliber physics critique (Apr 2026). Key correction: earlier draft claimed Starlink-ideal beat hollow-core on London↔Sydney — it does not under this model (148.0 ms HCF vs 156.5 ms Starlink ideal RTT at defaults).</p>
   </div>
 </section>
 
 <footer>
   <div>
     <a href="https://github.com/adstuart/latency-fibre-hcf-starlink">github.com/adstuart/latency-fibre-hcf-starlink</a>
-    · generated April 2026 · design inspired by Anthropic's editorial palette · model &amp; page © Adam Stuart
+    · generated April 2026 · peer-reviewed physics · model &amp; page © Adam Stuart
   </div>
 </footer>
 
@@ -652,17 +662,23 @@ function greatCircle(a, b) {
 }
 
 const STATE = {
-  n: 1.468,     // fibre index
-  h: 550,       // starlink altitude km
-  det: 29,      // cable detour percent vs great circle
+  n: 1.468,      // fibre index
+  h: 550,        // starlink altitude km
+  detMul: 1.00,  // multiplier applied to each route's representative 2025 cable path
+};
+
+// Representative 2025 submarine cable path lengths (TeleGeography-sourced; see refs)
+const CABLE_BASE_KM = {
+  nyc: 6200,   // Grace Hopper / AEConnect / EXA Express corridor, ~+11% vs great-circle
+  syd: 22000,  // multi-system routing via USA or Suez, ~+29% vs great-circle (no direct cable)
 };
 
 function compute(route) {
   // route: 'nyc' | 'syd'
   const dest = route === 'nyc' ? CITIES.NewYork : CITIES.Sydney;
   const gc = greatCircle(CITIES.London, dest);
-  // detour applied to great-circle to get cable length
-  const cable = gc * (1 + STATE.det / 100);
+  // Route-specific cable length, scaled by the user's multiplier
+  const cable = CABLE_BASE_KM[route] * STATE.detMul;
   const v_smf = C / STATE.n;
   const v_hcf = 0.997 * C;
 
@@ -671,15 +687,13 @@ function compute(route) {
   const prop_hcf = cable / v_hcf * 1000;
   const over_fibre = N_HOPS * T_ROUTER;
 
-  // Starlink ideal
+  // Starlink ideal (geometric lower bound)
   const arc = gc * (R_EARTH + STATE.h) / R_EARTH;
   const n_isl = Math.max(1, Math.round(arc / 2000));
   const prop_stl = (arc + 2 * STATE.h) / C * 1000;
   const over_stl = n_isl * T_SAT + 2 * T_GS;
 
-  // Starlink realistic: LEO access + long terrestrial backhaul across the ISL gap
-  const leo_access = 2 * (gc * (R_EARTH + STATE.h) / R_EARTH * (500 / gc) + STATE.h);
-  // simplify: sat portion ~2*h + 1000 km arc each side; backhaul fills the rest
+  // Starlink hybrid: LEO access + long terrestrial/submarine fibre across the ISL gap
   const sat_portion = 2 * STATE.h + 1000;
   const backhaul = Math.max(0, cable - 2000);
   const prop_stlr = sat_portion / C * 1000 + backhaul / v_smf * 1000;
@@ -694,24 +708,24 @@ function compute(route) {
     results: [
       mk('Standard SMF fibre', cable, v_smf, prop_smf, over_fibre),
       mk('Hollow-core fibre (NANF)', cable, v_hcf, prop_hcf, over_fibre),
-      mk('Starlink (ideal LEO+ISL)', arc + 2*STATE.h, C, prop_stl, over_stl),
-      mk('Starlink (realistic today)', sat_portion + backhaul, 0, prop_stlr, over_stlr),
+      mk('Starlink (ideal LEO+ISL lower bound)', arc + 2*STATE.h, C, prop_stl, over_stl),
+      mk('Starlink (hybrid: LEO access + fibre backhaul)', sat_portion + backhaul, 0, prop_stlr, over_stlr),
     ]
   };
 }
 
 // -------- rendering --------
 const PALETTE = {
-  'Standard SMF fibre':          'var(--smf)',
-  'Hollow-core fibre (NANF)':    'var(--hcf)',
-  'Starlink (ideal LEO+ISL)':    'var(--stl)',
-  'Starlink (realistic today)':  'var(--stl-real)',
+  'Standard SMF fibre':                                   'var(--smf)',
+  'Hollow-core fibre (NANF)':                             'var(--hcf)',
+  'Starlink (ideal LEO+ISL lower bound)':                 'var(--stl)',
+  'Starlink (hybrid: LEO access + fibre backhaul)':       'var(--stl-real)',
 };
 const TECHKEY = {
   'Standard SMF fibre': 'smf',
   'Hollow-core fibre (NANF)': 'hcf',
-  'Starlink (ideal LEO+ISL)': 'stl',
-  'Starlink (realistic today)': 'stlr',
+  'Starlink (ideal LEO+ISL lower bound)': 'stl',
+  'Starlink (hybrid: LEO access + fibre backhaul)': 'stlr',
 };
 
 function fmt(n, d=0) { return n.toLocaleString('en-GB', {minimumFractionDigits: d, maximumFractionDigits: d}); }
@@ -735,15 +749,16 @@ function render() {
   // Slider value readouts
   document.getElementById('v-n').textContent = STATE.n.toFixed(3);
   document.getElementById('v-h').textContent = STATE.h;
-  document.getElementById('v-d').textContent = STATE.det;
+  document.getElementById('v-d').textContent = STATE.detMul.toFixed(2);
 
   // Great-circle + cable row
   document.getElementById('gc-nyc').textContent = fmt(nyc.gc, 0) + ' km';
   document.getElementById('gc-syd').textContent = fmt(syd.gc, 0) + ' km';
   document.getElementById('cable-nyc').textContent = fmt(nyc.cable, 0) + ' km';
   document.getElementById('cable-syd').textContent = fmt(syd.cable, 0) + ' km';
-  document.getElementById('det-nyc').textContent = '+' + STATE.det + '%';
-  document.getElementById('det-syd').textContent = '+' + STATE.det + '%';
+  const pct = (cable, gc) => '+' + ((cable/gc - 1) * 100).toFixed(0) + '%';
+  document.getElementById('det-nyc').textContent = pct(nyc.cable, nyc.gc);
+  document.getElementById('det-syd').textContent = pct(syd.cable, syd.gc);
 
   // Breakdown bars
   renderBreakdown('break-nyc', nyc, 'London ↔ New York');
@@ -866,7 +881,7 @@ document.getElementById('fire-btn').addEventListener('click', fireRace);
 // -------- sliders --------
 document.getElementById('s-n').addEventListener('input', e => { STATE.n = parseFloat(e.target.value); render(); });
 document.getElementById('s-h').addEventListener('input', e => { STATE.h = parseFloat(e.target.value); render(); });
-document.getElementById('s-d').addEventListener('input', e => { STATE.det = parseFloat(e.target.value); render(); });
+document.getElementById('s-d').addEventListener('input', e => { STATE.detMul = parseFloat(e.target.value); render(); });
 
 // -------- reveal on scroll --------
 const io = new IntersectionObserver((entries) => {
