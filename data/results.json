@@ -1,0 +1,118 @@
+{
+  "constants": {
+    "c_kms": 299792.458,
+    "n_smf": 1.468,
+    "v_smf_kms": 204218.29564032698,
+    "v_hcf_kms": 298893.080626,
+    "v_hcf_frac_c": 0.997,
+    "starlink_alt_km": 550.0
+  },
+  "cities": {
+    "London": {
+      "lat": 51.5074,
+      "lon": -0.1278
+    },
+    "New York": {
+      "lat": 40.7128,
+      "lon": -74.006
+    },
+    "Sydney": {
+      "lat": -33.8688,
+      "lon": 151.2093
+    }
+  },
+  "cable_km": {
+    "London↔New York": 6200.0,
+    "London↔Sydney": 22000.0
+  },
+  "results": [
+    {
+      "route": "London ↔ New York",
+      "tech": "Standard SMF fibre",
+      "path_km": 6200.0,
+      "speed_kms": 204218.29564032698,
+      "propagation_ms": 30.359669688555005,
+      "overhead_ms": 0.4,
+      "one_way_ms": 30.759669688555004,
+      "rtt_ms": 61.51933937711001,
+      "notes": "n=1.468, v≈204,218 km/s (~0.681 c). Cable route 6,200 km vs great-circle 5,570 km."
+    },
+    {
+      "route": "London ↔ New York",
+      "tech": "Hollow-core fibre (NANF)",
+      "path_km": 6200.0,
+      "speed_kms": 298893.080626,
+      "propagation_ms": 20.7432035128239,
+      "overhead_ms": 0.4,
+      "one_way_ms": 21.1432035128239,
+      "rtt_ms": 42.2864070256478,
+      "notes": "v=0.997 c ≈ 298,893 km/s. Same cable routing; latency saving is pure physics."
+    },
+    {
+      "route": "London ↔ New York",
+      "tech": "Starlink (ideal LEO+ISL)",
+      "path_km": 7151.092090090473,
+      "speed_kms": 299792.458,
+      "propagation_ms": 23.85347562709691,
+      "overhead_ms": 7.0,
+      "one_way_ms": 30.85347562709691,
+      "rtt_ms": 61.70695125419382,
+      "notes": "LEO great-circle at 550 km, 3 ISL hops, c in vacuum."
+    },
+    {
+      "route": "London ↔ New York",
+      "tech": "Starlink (realistic today)",
+      "path_km": 7186.328676816826,
+      "speed_kms": 0.0,
+      "propagation_ms": 31.77641205642614,
+      "overhead_ms": 10.4,
+      "one_way_ms": 42.17641205642614,
+      "rtt_ms": 84.35282411285228,
+      "notes": "LEO access hop each side, plus 5,000 km of terrestrial/submarine fibre where the ISL mesh gap exists."
+    },
+    {
+      "route": "London ↔ Sydney",
+      "tech": "Standard SMF fibre",
+      "path_km": 22000.0,
+      "speed_kms": 204218.29564032698,
+      "propagation_ms": 107.72786018519518,
+      "overhead_ms": 0.4,
+      "one_way_ms": 108.12786018519519,
+      "rtt_ms": 216.25572037039038,
+      "notes": "n=1.468, v≈204,218 km/s (~0.681 c). Cable route 22,000 km vs great-circle 16,994 km."
+    },
+    {
+      "route": "London ↔ Sydney",
+      "tech": "Hollow-core fibre (NANF)",
+      "path_km": 22000.0,
+      "speed_kms": 298893.080626,
+      "propagation_ms": 73.60491569066545,
+      "overhead_ms": 0.4,
+      "one_way_ms": 74.00491569066546,
+      "rtt_ms": 148.0098313813309,
+      "notes": "v=0.997 c ≈ 298,893 km/s. Same cable routing; latency saving is pure physics."
+    },
+    {
+      "route": "London ↔ Sydney",
+      "tech": "Starlink (ideal LEO+ISL)",
+      "path_km": 19560.997249293276,
+      "speed_kms": 299792.458,
+      "propagation_ms": 65.24846348634053,
+      "overhead_ms": 13.0,
+      "one_way_ms": 78.24846348634053,
+      "rtt_ms": 156.49692697268105,
+      "notes": "LEO great-circle at 550 km, 9 ISL hops, c in vacuum."
+    },
+    {
+      "route": "London ↔ Sydney",
+      "tech": "Starlink (realistic today)",
+      "path_km": 22186.328676816825,
+      "speed_kms": 0.0,
+      "propagation_ms": 105.22722581905921,
+      "overhead_ms": 10.4,
+      "one_way_ms": 115.62722581905922,
+      "rtt_ms": 231.25445163811844,
+      "notes": "LEO access hop each side, plus 20,000 km of terrestrial/submarine fibre where the ISL mesh gap exists."
+    }
+  ]
+}
