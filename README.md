@@ -2,7 +2,9 @@
 
 A reproducible, physics-grounded comparison of round-trip latency between London and two endpoints — New York and Sydney — over **standard single-mode fibre**, **hollow-core fibre**, and **Starlink** LEO satellite.
 
-**Live page:** `docs/index.html` (open locally, or enable GitHub Pages from `/docs`).
+### → **[Live interactive page](https://adstuart.github.io/latency-fibre-hcf-starlink/)**
+
+Drag the sliders (fibre refractive index, Starlink altitude, cable detour) and every number on the page updates live. Click *Fire packet* to watch a signal race across each medium.
 
 ## Architecture
 
