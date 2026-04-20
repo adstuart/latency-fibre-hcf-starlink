@@ -21,6 +21,10 @@ V_VAC = C_KMS                       # Starlink: c in vacuum, ~c in atmosphere
 
 EARTH_R_KM = 6371.0
 STARLINK_ALT_KM = 550.0             # Gen1/Gen2 shell altitude
+ISL_GRID_DETOUR = 1.15              # typical real-world ISL grid routing overhead vs geodesic
+                                    # (1.00× = press-release lower bound; 1.10–1.20× = observed grid
+                                    #  routing with ~8,100 sats × 4 laser ISLs each, April 2026;
+                                    #  1.30× = polar hand-off worst case)
 T_SAT_PROC_MS = 1.0                 # per-satellite processing + pointing + queuing budget (conservative)
 T_GS_PROC_MS = 2.0                  # ground-station bent-pipe processing
 T_ROUTER_MS = 0.05                  # ~50 µs per terrestrial router hop
@@ -102,6 +106,24 @@ def starlink_idealised(route: str, gc_km: float) -> Result:
     return Result(route, "Starlink (ideal LEO+ISL lower bound)", path, C_KMS, prop, overhead, one_way, 2 * one_way, notes)
 
 
+def starlink_grid_routed(route: str, gc_km: float) -> Result:
+    """Observed-reality Starlink RTT: geodesic arc × ISL_GRID_DETOUR (1.15×).
+
+    The ~8,100-sat grid topology (4 laser ISLs per satellite) cannot hold an
+    arbitrary continuous great-circle path; packets bounce between adjacent
+    orbital planes, taking typically 10-20% longer than a geodesic.
+    """
+    arc = leo_arc_km(gc_km) * ISL_GRID_DETOUR
+    up_down = 2 * STARLINK_ALT_KM
+    n_hops = max(1, round(arc / 2_000))
+    path = arc + up_down
+    prop = path / C_KMS * 1000.0
+    overhead = n_hops * T_SAT_PROC_MS + 2 * T_GS_PROC_MS
+    one_way = prop + overhead
+    notes = f"Grid-routed reality: LEO arc × {ISL_GRID_DETOUR:.2f} detour, {n_hops} ISL hops at {STARLINK_ALT_KM:.0f} km."
+    return Result(route, "Starlink (grid-routed, 1.15× detour)", path, C_KMS, prop, overhead, one_way, 2 * one_way, notes)
+
+
 def starlink_realistic(route: str, gc_km: float, fibre_backhaul_km: float, backhaul_v: float) -> Result:
     """
     Illustrative hybrid scenario: LEO first/last-mile access, then terrestrial/submarine fibre
@@ -139,6 +161,7 @@ def build_all() -> list[Result]:
             "what-if — HCF is not yet deployed on transoceanic wet-plant at scale."
         ))
         results.append(starlink_idealised(route, gc))
+        results.append(starlink_grid_routed(route, gc))
         # "Realistic today": assume the transoceanic leg rides fibre at SMF speed
         if (a, b) == ("London", "Sydney"):
             results.append(starlink_realistic(route, gc, fibre_backhaul_km=20_000.0, backhaul_v=V_SMF))
@@ -154,6 +177,7 @@ def main(out: Path) -> None:
             "c_kms": C_KMS, "n_smf": N_SMF, "v_smf_kms": V_SMF,
             "v_hcf_kms": V_HCF, "v_hcf_frac_c": 0.997,
             "starlink_alt_km": STARLINK_ALT_KM,
+            "isl_grid_detour": ISL_GRID_DETOUR,
         },
         "cities": {k: {"lat": v[0], "lon": v[1]} for k, v in CITIES.items()},
         "cable_km": {f"{a}↔{b}": v for (a, b), v in CABLE_KM.items()},

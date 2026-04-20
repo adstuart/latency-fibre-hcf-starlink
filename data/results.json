@@ -5,7 +5,8 @@
     "v_smf_kms": 204218.29564032698,
     "v_hcf_kms": 298893.080626,
     "v_hcf_frac_c": 0.997,
-    "starlink_alt_km": 550.0
+    "starlink_alt_km": 550.0,
+    "isl_grid_detour": 1.15
   },
   "cities": {
     "London": {
@@ -61,6 +62,17 @@
     },
     {
       "route": "London ↔ New York",
+      "tech": "Starlink (grid-routed, 1.15× detour)",
+      "path_km": 8058.755903604044,
+      "speed_kms": 299792.458,
+      "propagation_ms": 26.881116214084493,
+      "overhead_ms": 7.0,
+      "one_way_ms": 33.88111621408449,
+      "rtt_ms": 67.76223242816899,
+      "notes": "Grid-routed reality: LEO arc × 1.15 detour, 3 ISL hops at 550 km."
+    },
+    {
+      "route": "London ↔ New York",
       "tech": "Starlink (hybrid: LEO access + fibre backhaul)",
       "path_km": 7186.328676816826,
       "speed_kms": 0.0,
@@ -102,6 +114,17 @@
       "one_way_ms": 78.24846348634053,
       "rtt_ms": 156.49692697268105,
       "notes": "Idealised lower bound: LEO great-circle at 550 km, 9 ISL hops."
+    },
+    {
+      "route": "London ↔ Sydney",
+      "tech": "Starlink (grid-routed, 1.15× detour)",
+      "path_km": 22330.146836687265,
+      "speed_kms": 299792.458,
+      "propagation_ms": 74.48535225221465,
+      "overhead_ms": 15.0,
+      "one_way_ms": 89.48535225221465,
+      "rtt_ms": 178.9707045044293,
+      "notes": "Grid-routed reality: LEO arc × 1.15 detour, 11 ISL hops at 550 km."
     },
     {
       "route": "London ↔ Sydney",

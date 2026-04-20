@@ -15,6 +15,11 @@ vSMF     = cKms/nSMF;                      (* ~204218 km/s *)
 vHCF     = 0.997 cKms;                     (* Microsoft/Lumenisity NANF *)
 REarth   = 6371.0;
 hLEO     = 550.0;
+islGridDetour = 1.15;                      (* typical real-world ISL grid routing overhead
+                                              vs geodesic; 1.00 = press-release ideal,
+                                              1.10-1.20 = observed with ~8,100 sats
+                                              x 4 laser ISLs each (April 2026),
+                                              1.30 = polar hand-off worst case *)
 tSatProc = 1.0;  (* ms *)
 tGSProc  = 2.0;  (* ms *)
 tRouter  = 0.05; (* ms *)
@@ -51,6 +56,12 @@ starlinkIdeal[dGC_] :=
     (arc + 2 hLEO)/cKms * 1000 + nIsl * tSatProc + 2 tGSProc
   ];
 
+starlinkGridRouted[dGC_] :=
+  Module[{arc = leoArc[dGC] * islGridDetour, nIsl},
+    nIsl = Max[1, Round[arc/2000]];
+    (arc + 2 hLEO)/cKms * 1000 + nIsl * tSatProc + 2 tGSProc
+  ];
+
 starlinkRealistic[dGC_, backhaulKm_] :=
   Module[{leoAccess = 2 (leoArc[500] + hLEO)},
     leoAccess/cKms * 1000 + backhaulKm/vSMF * 1000 +
@@ -67,6 +78,7 @@ results = Flatten[ Table[
     <| "route"->a<>" <-> "<>b, "tech"->"SMF fibre",          "rtt_ms"-> 2 fibreOneWay[dCable, vSMF] |>,
     <| "route"->a<>" <-> "<>b, "tech"->"Hollow-core (NANF)", "rtt_ms"-> 2 fibreOneWay[dCable, vHCF] |>,
     <| "route"->a<>" <-> "<>b, "tech"->"Starlink (ideal)",   "rtt_ms"-> 2 starlinkIdeal[dGC] |>,
+    <| "route"->a<>" <-> "<>b, "tech"->"Starlink (grid-routed 1.15x)", "rtt_ms"-> 2 starlinkGridRouted[dGC] |>,
     <| "route"->a<>" <-> "<>b, "tech"->"Starlink (realistic)",
        "rtt_ms"-> 2 starlinkRealistic[dGC, If[MatchQ[r,{"London","Sydney"}], 20000, 5000]] |>
   }, {r, routes}], 1];
